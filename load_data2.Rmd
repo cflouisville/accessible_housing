@@ -1,0 +1,38 @@
+---
+title: "load_data2"
+output: html_document
+---
+
+```{r}
+library(reticulate)
+
+# create a new environment
+virtualenv_create("r-reticulate")
+
+# install SciPy
+virtualenv_install("r-reticulate", c("scipy", "pandas"))
+
+# import SciPy (it will be automatically discovered in "r-reticulate")
+scipy <- import("scipy")
+pd <- import("pandas")
+plt <- import("matplotlib.pyplot")
+```
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+#step 1 load data
+df = pd.read_excel("data/KHC Project Listings by Unit Category.xlsx")
+df.head()
+
+```
+
+```{python}
+#preliminary info on total units vs accessible units (not done)
+total_units = df["Units"].sum()
+print("total units= ", total_units)
+ADA_rows = df[df["Unit Category"].str.contains("ADA", case=False)]
+ADA_units = df[df["Unit Category"].str.contains("ADA", case=False)]["Units"].sum()
+print("Filter for ADA=", ADA_rows)
+print("ADA unit count=", ADA_units)
+```
