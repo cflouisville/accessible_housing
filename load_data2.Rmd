@@ -3,6 +3,393 @@ title: "load_data2"
 output: html_document
 ---
 
+```{r setup}
+library(glptools)
+glp_load_packages()
+
+```
+
+# Analyze ACS disability data
+
+## Read in data
+
+```{r example_code, eval = FALSE}
+
+# @Morgan this file is so named because it is ACS Microdata that is cut down to just counties/FIPS (as opposed to observations across the MSA, which takes longer to read in and work with) and includes replicate weights.
+
+options(arrow.skip_nul = TRUE)
+
+acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
+
+# base_example <- acs_micro[acs_micro$FIPS == "21111",]
+# 
+# dplyr_example <- filter(acs_micro, FIPS == "21111")
+# 
+# dplyr_example2 <- acs_micro %>%
+#   filter(FIPS == "21111")
+# 
+# acs_micro %<>%
+#   filter(FIPS == "21111")
+# 
+# dploy_example3 <- acs_micro %>%
+#   select(FIPS, race)
+# 
+# deplyr_example4 <- acs_micro %>%
+#   select(FIPS, race) %>%   # Chopping down to columns!
+#   filter(FIPS == "21111")
+# 
+# 
+# disability_data[1:100,] %>% select(dis_physical)
+
+```
+
+## Clean data
+
+```{r, eval = FALSE}
+
+# The ACS disability questions were significantly modified in 2008, so we will only use data from 2008 onward so that all of the years are comparable.
+### @Morgan: I do this first to make the rest of the code run faster. I might undo the subset to Louisville later, 
+
+disability_data <- acs_micro %>%
+  filter(year >= 2008, FIPS == "21111")
+
+# Recode disability variables
+# Find info on each variable here: https://usa.ipums.org/usa/index.shtml
+
+disability_data %<>%
+  mutate(
+    
+    # RECODE DISABILITY VARIABLES
+    #@Morgan case_when evaluates from top to bottom. If the value on the left is true, it assigns the value on the right.
+    
+    # Ambulatory difficulty
+    dis_physical = case_when(
+      DIFFPHYS == 0 ~ NA,     #@Morgan the tilde indicates formula
+      DIFFPHYS == 1 ~ F,
+      DIFFPHYS == 2 ~ T),
+    
+    # Independent living difficulty
+    dis_independent = case_when(
+      DIFFMOB == 0 ~ NA,
+      DIFFMOB == 1 ~ F,
+      DIFFMOB == 2 ~ T), 
+    
+    # Self-care difficulty
+    dis_selfcare  = case_when(
+      DIFFCARE  == 0 ~ NA,
+      DIFFCARE  == 1 ~ F,
+      DIFFCARE  == 2 ~ T), 
+    
+    # Vision difficulty
+    dis_vision = case_when(
+      DIFFEYE == 0 ~ NA,
+      DIFFEYE == 1 ~ F,
+      DIFFEYE == 2 ~ T), 
+    
+    # Hearing difficulty
+    dis_hearing  = case_when(
+      DIFFHEAR  == 0 ~ NA,
+      DIFFHEAR  == 1 ~ F,
+      DIFFHEAR  == 2 ~ T),
+    
+    # Vision or hearing difficulty (DIFFSENS) not included for now 
+    
+    # Any disabling condition
+    # @Morgan switching up the syntax for funsies :)
+    # R is a "vectorized" programming language. One of the most poweful aspects of R, and the hardest to wrap your head around, is when things are happening within individual row elements vs. across entire column vectors. For example, the plus operator here works within individual rows. If you were to use the sum function instead, it would add up all of the values within the columns. If I did that, I would find that dis_any would be T for every observation because sum(those variables) would evaluate to like 300000 for every single row.
+    dis_any = if_else((dis_physical + dis_independent + dis_selfcare + dis_vision + dis_hearing) > 0, T, F),
+    
+    # RECODE OTHER CATEGORY VARIABLES
+    
+    # Age group
+    # @Morgan Not sure how many buckets I want, so I make two versions! We will see what provides meaningful information, and how deep we can disaggregate before the data becomes to noisy.
+    age_group_3 = case_when(      
+      age %in% 5:18 ~ "5_18",
+      age %in% 19:64 ~ "19_64",
+      age > 65 ~ "65+"),
+    
+    age_group_9 = case_when(
+      age %in% 0:9 ~ NA_character_, #@Morgan NA can have different types! NA alone is a logical. Common source of errors.
+      age %in% 10:19 ~ "10_19", 
+      age %in% 20:29 ~ "20_29", 
+      age %in% 30:39 ~ "30_39",  
+      age %in% 40:49 ~ "40_49",  
+      age %in% 50:59 ~ "50_59",  
+      age %in% 60:69 ~ "60_69", 
+      age %in% 70:79 ~ "70_79", 
+      age >= 80 ~ "80+"),
+    
+  # Income group
+  # @Morgan the relevant income in this situation is probably household income over individual earnings. Unlike other variables included here, this is the same for all members of a household.
+  
+    HHINCOME = replace(HHINCOME, HHINCOME == 99999, NA),
+  
+    income_group = case_when(
+      HHINCOME <= quantile(HHINCOME, probs = 0.4) ~ 'LH',
+      HHINCOME <= quantile(HHINCOME, probs = 0.8) ~ 'UH',
+      HHINCOME > quantile(HHINCOME, probs = 0.8) ~ 'T20',
+      TRUE ~ NA_character_), #@Morgan example of a catchall statement at the end of a case_when for if you don't specify a new value for every case. "TRUE" could also be "is.na(HHICOME)"
+  
+  # Homeownership 
+  # @Morgan Not sure if we'll use them all. Rent vs. own for sure, unsure about others.
+  
+    OWNCOST  = replace(OWNCOST, OWNCOST == 99999, NA),
+    OWNERSHP = replace(OWNERSHP, OWNERSHP == 0, NA),
+    RENTGRS  = replace(RENTGRS, RENTGRS == 0 & OWNERSHP == 1, NA),
+
+    homeownership = if_else(OWNERSHP == 1, T, F),
+
+    hcost = if_else(homeownership == 1, OWNCOST, RENTGRS),
+    cost_burden = if_else(hcost * 12 / HHINCOME > 0.3, T, F),
+    severe_cost_burden = if_else(hcost * 12 / HHINCOME > 0.5, 1, 0),
+
+    hh_type = case_when(
+      homeownership  & !cost_burden ~ "noncb_homeowner",
+      homeownership  & cost_burden  ~ "cb_homeowner",
+      !homeownership & !cost_burden ~ "noncb_renter",
+      !homeownership & cost_burden  ~ "cb_renter",
+      TRUE ~ NA_character_)
+    
+    )
+
+# MB Checking the disability variable recode. The colon selects several columns. Nifty!
+# disability_data[1:100,] %>% select(dis_physical:dis_any)
+
+
+## HOUSEHOLD
+# @Morgan this makes a variable that flags whether anyone in the household (HH) has a disability!!
+
+disability_data %<>%
+  
+  #@MB HHs are identified by unique values of SERIAL. (SERIAL is repeated across years, hence the need to group by year as well)
+  group_by(year, SERIAL) %>% 
+  
+  #@MB back to vectorized! The verb any is looking up and down the small subset of observations we have created for each HH via group_by to see if dis_physical is true in any of the rows. This type of operation usually takes way longer than simple row-wise operations, so this code is suuuuuper slow.
+  
+  mutate(
+    any_dis_physical    = if_else(any(dis_physical), T, F), 
+    any_dis_independent = if_else(any(dis_independent), T, F),
+    any_dis_selfcare    = if_else(any(dis_selfcare), T, F),
+    any_dis_vision      = if_else(any(dis_vision), T, F),
+    any_dis_hearing     = if_else(any(dis_hearing), T, F),
+    any_dis_any         = if_else(any(dis_any), T, F)) %>% #@MB lol at this naming convention :)
+
+  ungroup()
+
+#@MB saving 
+arrow::write_feather(disability_data, "interim_data/disability_data.feather")
+
+
+```
+
+## Process data
+
+This takes the data that was read, filtered, processed, and saved above and does calculations.
+
+```{r}
+
+disability_data <- arrow::read_feather("interim_data/disability_data.feather")
+
+# What percentage of Louisvillians have a disability?
+
+# @Morgan, the GLP code does have fairly crappy documentation that you can access in R! e.g. ?survey_by_demog
+# But the documentation is at times outdated or incomplete. You can always view inside the function, particularly to see what arguments are provided.
+
+# All disabilities x race and sex
+
+individual_dis_physical    <- survey_by_demog(disability_data, "dis_physical",    "PERWT")
+individual_dis_independent <- survey_by_demog(disability_data, "dis_independent", "PERWT")
+individual_dis_selfcare    <- survey_by_demog(disability_data, "dis_selfcare",    "PERWT")
+individual_dis_vision      <- survey_by_demog(disability_data, "dis_vision",      "PERWT")
+individual_dis_hearing     <- survey_by_demog(disability_data, "dis_hearing",     "PERWT")
+individual_dis_any         <- survey_by_demog(disability_data, "dis_any",         "PERWT")
+
+# Combine data frames
+
+# @MB: the functions for you to know are left_join and full_join, etc.
+# This would work here because the data frame starts out super organized and the columns in common are tidy, but normally you need to do more specification on which columns are supposed to match up, etc.
+# individual_dis <- left_join(individual_dis_physical, individual_dis_independent)
+# individual_dis <- left_join(individual_dis, individual_dis_selfcare)
+# ...
+
+# This is a custom glptools shortcut
+
+individual_dis <- bind_df(individual_dis_physical, 
+                          individual_dis_independent,
+                          individual_dis_selfcare,
+                          individual_dis_vision,
+                          individual_dis_hearing,
+                          individual_dis_any)
+
+# Clean up the environment
+rm(individual_dis_physical, individual_dis_independent, individual_dis_selfcare, individual_dis_vision,
+   individual_dis_hearing, individual_dis_any)
+
+
+# @MB turns out I DID write this code to let us group by other variables! Lit.
+
+# Physical disability X age, income, and homeownership X race and sex
+
+individual_dis_age_3 <- survey_by_demog(disability_data, 
+                                        "dis_physical", 
+                                        "PERWT", 
+                                        other_grouping_vars = "age_group_3")
+
+individual_dis_age_9 <- survey_by_demog(disability_data, 
+                                        "dis_physical", 
+                                        "PERWT", 
+                                        other_grouping_vars = "age_group_9")
+
+individual_dis_income <- survey_by_demog(disability_data, 
+                                         "dis_physical", 
+                                         "PERWT", 
+                                         other_grouping_vars = "income_group")
+
+individual_dis_homeownership <- survey_by_demog(disability_data, 
+                                                "dis_physical", 
+                                                "PERWT", 
+                                                other_grouping_vars = "homeownership")
+
+
+
+
+
+# What percentage of Louisville households include a person with a disability?
+# @MB Every person within a household is identified by PERNUM. Variables that apply to the household will have the same value for every individual in that household, so we just need one row per household. We filter to just the first person in each household with PERNUM == 1.
+
+disability_data_hh <- disability_data %>%
+  filter(PERNUM == 1)
+
+# Individual-level demographics don't apply at the household level, i.e. race and gender. I use breakdowns == "total" to stop creating numbers by race and gender. But income and homeownership still do apply.
+
+# All disabilities
+
+household_dis_physical    <- survey_by_demog(disability_data_hh, "any_dis_physical",    "HHWT", breakdowns = "total") 
+household_dis_independent <- survey_by_demog(disability_data_hh, "any_dis_independent", "HHWT", breakdowns = "total")
+household_dis_selfcare    <- survey_by_demog(disability_data_hh, "any_dis_selfcare",    "HHWT", breakdowns = "total") 
+household_dis_vision      <- survey_by_demog(disability_data_hh, "any_dis_vision",      "HHWT", breakdowns = "total") 
+household_dis_hearing     <- survey_by_demog(disability_data_hh, "any_dis_hearing",     "HHWT", breakdowns = "total") 
+household_dis_any         <- survey_by_demog(disability_data_hh, "any_dis_any",         "HHWT", breakdowns = "total") 
+
+household_dis <- bind_df(household_dis_physical, 
+                         household_dis_independent,
+                         household_dis_selfcare,
+                         household_dis_vision,
+                         household_dis_hearing,
+                         household_dis_any)
+
+# Clean up the environment
+rm(household_dis_physical, household_dis_independent, household_dis_selfcare, household_dis_vision,
+   household_dis_hearing, household_dis_any)
+
+#@MB note HHWT rather than PERWT 
+
+# Physical disability x income and homeownership
+
+household_dis_income <- survey_by_demog(disability_data_hh, 
+                                         "any_dis_physical", 
+                                         "HHWT", 
+                                         other_grouping_vars = "income_group",
+                                         breakdowns = "total")
+
+household_dis_homeownership <- survey_by_demog(disability_data_hh, 
+                                               "any_dis_physical", 
+                                               "HHWT", 
+                                               other_grouping_vars = "homeownership",
+                                               breakdowns = "total")
+
+```
+
+## @MB: Processing by hand
+
+```{r, eval=FALSE}
+
+# @MB You asked to see the code that does the work in the above.
+# 
+# The more specific function is glptools:::svy_repwts. It's long because it creates multiple different outputs (i.e. not only does it make the number we're looking for, but also the MOE, confidence interval, etc.)
+# 
+# The actual code that summarizes the data is:
+#
+# results_estimate %<>%
+#   group_by(across(all_of(c(grouping_vars, var)))) %>%
+#   summarise(estimate = sum(.data[[weight_var]]), .groups = "drop")
+#
+
+# To write that with the specific variables used here:
+
+# This filters to rows where none of the columns specified in that character vector are NA.
+# It can be complicated to figure out when to use quoted vs. unquoted variable names. While filter normally works with unquoted variables, I need to use quoted strings for Dplyr to use if_all to find them in the data frame, then apply the formula ~!is.na(.) to them all.
+
+example_df <- disability_data %>%
+  filter(if_all(c("FIPS", "year", "sex", "race", "dis_physical"), ~!is.na(.))) 
+
+# Count the number of cases for each value of dis_physical within each demographic category.
+
+example_df %<>%
+  group_by(FIPS, year, sex, race, dis_physical) %>%
+  summarise(estimate = sum(PERWT), .groups = "drop") #You can either use ungroup() the function, or specify .groups = "drop" to ungroup data.
+
+# Summarize the data and create a percentage
+
+example_df %<>%
+  
+  # Note that I'm not grouping by dis_physical here. This creates "mini-data frames" where each one has exactly three rows: one for each value of dis_physical. (T, F, & NA)
+  
+  group_by(FIPS, year, sex, race) %>% 
+  
+  mutate(
+    population = sum(estimate), # Add together cases where dis_physical is TRUE and dis_physical is FALSE. 
+    percent    = estimate / population * 100) %>%
+  ungroup()
+
+example_df %<>%
+  filter(dis_physical) %>% # I just want the rows where this is true
+  select(-dis_physical)
+
+
+```
+
+# Exploring the results
+
+```{r}
+
+this_df <- individual_dis %>%
+  filter(var_type == "percent", sex == "total", race == "total")
+
+
+this_df <- individual_dis_age_9 %>%
+  filter(var_type %in% c("percent", "CI"), sex == "total", race == "total")
+
+
+
+```
+
+## Revisiting some things
+
+survey_by_demog is mainly a wrapper function that calls svy_repwts or svy_bootstrap multiple times and combines the results.
+
+The notation in R to access a function without loading in a package (or to specify the package to address conflicts in the namespace) is a double colon. Some packages, including glptools, include functions that are not loaded into the namespace at all. Those are available via triple colon.
+
+```{r, eval = FALSE}
+
+# The confidence intervals tend to fall apart at small values.
+# Bootstrapping is a method used to generate confidence intervals by re-sampling the observations themselves. It does discard some information the Census bakes in via their replicate weights, but notably, it provides separate numbers for the lower bound and upper bound, rather than one MOE and CI.
+
+# Bootstrapping a year of data in Louisville, for example, looks like taking the observations for Louisville, taking 1,000 samples from those observations, then looking at the spread of those samples
+
+# I am largely unable to follow my own code to create bootstrap weights at this point. It uses the map_ functions, which are a part of the purrr package of the tidyverse. The map_ functions can typically replace for loops in R, offer performance benefits, and allow you to write shorter code. However, they come with a level of incredible complexity that I can't follow any more. You're doing a lot "behind the curtain" kind of like you can do with group_by() %>% summarize(), but it extends beyond doing simple math on each individual group and extends it to more complex operations.
+
+individual_disability <- survey_by_demog(filter(disability_data, year == 2023), 
+                                         "dis_physical", 
+                                         "PERWT",
+                                         method = "bootstrap",
+                                         breakdowns = "total")
+
+```
+
+
+
+
 ```{r}
 library(reticulate)
 
