@@ -1,0 +1,97 @@
+---
+title: "KHC_analysis"
+output: html_document
+---
+# Setup
+
+```{r}
+library(reticulate)
+
+# create a new environment
+virtualenv_create("r-reticulate")
+
+# install SciPy
+virtualenv_install("r-reticulate", c("scipy", "pandas"))
+
+# import SciPy (it will be automatically discovered in "r-reticulate")
+scipy <- import("scipy")
+pd <- import("pandas")
+plt <- import("matplotlib.pyplot")
+```
+
+# Load Data
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_excel("data/KHC Project Listings by Unit Category.xlsx")
+
+# view cols
+col_names = df.columns.to_list()
+print(col_names)
+
+```
+
+# Calculations
+*note that the differences in unit features based on categories ADA compliant, physical disabilities, and special needs have not been identified*
+
+```{python}
+# preliminary info on total units vs accessible units (not done)
+
+total_units = df["Units"].sum()
+print("total units= ", total_units)
+
+# ADA specific
+ADA_filter = df["Unit Category"].str.contains("ADA", case=False, na=False)
+ADA_rows = df[ADA_filter]
+ADA_units = ADA_rows["Units"].sum()
+print("ADA unit count=", ADA_units)
+
+# where unit category != ADA compliant and unit type= physical disabilities
+PD_units = df[
+    df["Unit Type"].str.contains("Physical", case=False, na=False)
+    & ~df["Unit Category"].str.contains("ADA", case=False, na=False)]["Units"].sum()
+print("Physical Disabilities unit count= ", PD_units)
+
+# where unit category = special needs
+SN_units = df[df["Unit Category"].str.contains("Special", case=False, na=False)]["Units"].sum()
+print("Special Needs unit count= ", SN_units)
+print("\n")
+
+# totals and percents 
+all_accessible = ADA_units +PD_units + SN_units
+percent = (ADA_units/total_units)*100
+percent2 = (( ADA_units + PD_units)/total_units)*100
+percent3= (all_accessible/total_units)*100
+print(f"{percent:.2f}% of units are ADA compliant according to KHC data")
+print(f"{percent2:.2f}% of units are ADA Compliant or accessible to people with physical disabilities according to KHC data")
+print(f"{percent3:.2f}% of units are ADA Compliant or accessible to people with physical disabilities or labeled as special needs according to KHC data")
+
+```
+# Visualize 
+
+``` {python}
+import matplotlib.pyplot as plt
+import pandas as pd
+
+summary = pd.DataFrame({
+    "Category": [
+        "ADA Compliant",
+        "Physical Disabilities",
+        "Special Needs",
+        "All Accessible",
+    ],
+    "Units": [ADA_units, PD_units, SN_units, all_accessible]
+})
+
+# bar graph
+plt.figure(figsize=(4, 4))
+plt.bar(summary["Category"], summary["Units"])
+plt.title("Accessible Housing Units by Category")
+plt.xlabel("Category")
+plt.ylabel("Number of Units")
+plt.xticks(rotation=30, ha="right")
+plt.tight_layout()
+plt.show()
+```
