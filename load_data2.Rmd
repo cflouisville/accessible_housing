@@ -400,7 +400,85 @@ individual_disability <- survey_by_demog(filter(disability_data, year == 2023),
 
 ```
 
+#Graphs
 
+``` {r}
+library(ggplot2)
+
+#mutate dfs to plot
+
+# chart 1 -> prevalence of disabilities by type
+# only most recent year (can change)
+dis_prev_by_type <- individual_dis %>%
+  filter(year ==2023, var_type == "percent", sex == "total", race == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(6,7) %>%
+  mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+  select(Disability_Type, Percent)
+
+arrow::write_feather(dis_prev_by_type, "interim_data/dis_prev_by_type.feather")
+  
+
+# now to actually plot them eek
+#update not so cute but we can prettify later 
+plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
+  geom_col(fill = "darkblue", width = .5) +
+  labs(
+    title = "Prevalence of Disabilities by Type (2023)",
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+  theme_minimal(base_size =  12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+  print(plot1)
+
+  ggsave("interim_data/plots/dis_by_type.png", plot= plot1)
+  
+```
+
+``` {r}
+#TODO- recode sex -> Sex and male, female to caps too (for ggplot aesthetics)
+  dis_by_sex <- individual_dis %>%
+  filter(year ==2023, var_type == "percent", sex %in% c("male", "female"), race == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(3,6,7) %>%
+  mutate(Disability_Type = recode(Disability_Type,
+                                  dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+  
+  plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = sex)) +  # fill says split x category by sex
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Sex (2023)",
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("male" = "darkblue", "female" = "lightblue")) +  # <-- note the +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+  print(plot2)
+  ggsave("interim_data/plots/dis_by_sex.png", plot= plot2)
+  
+```
 
 
 ```{r}
