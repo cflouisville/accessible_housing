@@ -19,7 +19,10 @@ glp_load_packages()
 
 options(arrow.skip_nul = TRUE)
 
-acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
+#"C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather"
+#"C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather"
+
+acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather")
 
 # base_example <- acs_micro[acs_micro$FIPS == "21111",]
 # 
@@ -28,7 +31,7 @@ acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/m
 # dplyr_example2 <- acs_micro %>%
 #   filter(FIPS == "21111")
 # 
-# acs_micro %<>%
+# acs_micro %<>% #modify in place
 #   filter(FIPS == "21111")
 # 
 # dploy_example3 <- acs_micro %>%
@@ -174,7 +177,7 @@ disability_data %<>%
     any_dis_hearing     = if_else(any(dis_hearing), T, F),
     any_dis_any         = if_else(any(dis_any), T, F)) %>% #@MB lol at this naming convention :)
 
-  ungroup()
+  ungroup() #why ungroup at the end
 
 #@MB saving 
 arrow::write_feather(disability_data, "interim_data/disability_data.feather")
@@ -339,7 +342,7 @@ example_df %<>%
   
   mutate(
     population = sum(estimate), # Add together cases where dis_physical is TRUE and dis_physical is FALSE. 
-    percent    = estimate / population * 100) %>%
+    percent  = estimate / population * 100) %>%
   ungroup()
 
 example_df %<>%
