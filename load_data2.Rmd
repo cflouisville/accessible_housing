@@ -1,11 +1,21 @@
 ---
-title: "load_data2"
-output: html_document
+title: "Accessible Housing"
+output:
+  html_document:
+    self_contained: false
+    toc: yes
+    toc_float: yes
+    code_folding: hide
+date: "2025-11-25"
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = file.path(dirname(inputFile), 'docs/index.html')) })
 ---
 
-```{r setup}
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
 library(glptools)
-glp_load_packages()
+glp_load_packages(T)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+                      dev.args=list(bg="transparent"), fig.width=9, fig.height=6) 
 
 ```
 
@@ -189,7 +199,7 @@ arrow::write_feather(disability_data, "interim_data/disability_data.feather")
 
 This takes the data that was read, filtered, processed, and saved above and does calculations.
 
-```{r}
+```{r, eval = FALSE}
 
 disability_data <- arrow::read_feather("interim_data/disability_data.feather")
 
@@ -362,21 +372,6 @@ example_df %<>%
 
 ```
 
-# Exploring the results
-
-```{r}
-
-this_df <- individual_dis %>%
-  filter(var_type == "percent", sex == "total", race == "total")
-
-
-this_df <- individual_dis_age_9 %>%
-  filter(var_type %in% c("percent", "CI"), sex == "total", race == "total")
-
-
-
-```
-
 ## Revisiting some things
 
 survey_by_demog is mainly a wrapper function that calls svy_repwts or svy_bootstrap multiple times and combines the results.
@@ -400,10 +395,13 @@ individual_disability <- survey_by_demog(filter(disability_data, year == 2023),
 
 ```
 
-#Graphs
+# Graphs
+
+# Graph1
 
 ``` {r}
-library(ggplot2)
+
+load("interim_data/clean_disability_data.RData")
 
 #mutate dfs to plot
 
@@ -424,6 +422,8 @@ dis_prev_by_type <- individual_dis %>%
   select(Disability_Type, Percent)
 
 arrow::write_feather(dis_prev_by_type, "interim_data/dis_prev_by_type.feather")
+##@MB I'd recommend using save() and load() whenever you can, since they preserve R objects as they are in the environment.
+# feather is great (even vital) for large tables since it provides an insanely compact and fast way to read tabular data. But 
   
 
 # now to actually plot them eek
@@ -446,6 +446,9 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   
 ```
 
+# Graph2
+
+
 ``` {r}
 #TODO- recode sex -> Sex and male, female to caps too (for ggplot aesthetics)
   dis_by_sex <- individual_dis %>%
@@ -460,7 +463,7 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
-                                  dis_any = "Any")) %>%
+                                  dis_any = "Any"))
   
   plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = sex)) +  # fill says split x category by sex
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
@@ -481,7 +484,7 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 library(reticulate)
 
 # create a new environment
@@ -496,7 +499,7 @@ pd <- import("pandas")
 plt <- import("matplotlib.pyplot")
 ```
 
-```{python}
+```{python, eval=FALSE}
 import pandas as pd
 import matplotlib.pyplot as plt
 #step 1 load data
@@ -505,7 +508,7 @@ df.head()
 
 ```
 
-```{python}
+```{python, eval=FALSE}
 #preliminary info on total units vs accessible units (not done)
 total_units = df["Units"].sum()
 print("total units= ", total_units)
