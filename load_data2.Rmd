@@ -298,6 +298,16 @@ household_dis_homeownership <- survey_by_demog(disability_data_hh,
                                                other_grouping_vars = "homeownership",
                                                breakdowns = "total")
 
+save(individual_dis, 
+     individual_dis_age_3,
+     individual_dis_age_9,
+     individual_dis_income,
+     individual_dis_homeownership,
+     household_dis, 
+     household_dis_income,
+     household_dis_homeownership, 
+     file = "interim_data/clean_disability_data.RData")
+
 ```
 
 ## @MB: Processing by hand
