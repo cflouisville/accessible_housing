@@ -397,7 +397,7 @@ individual_disability <- survey_by_demog(filter(disability_data, year == 2023),
 
 # Graphs
 
-# Graph1
+## Graph1
 
 ``` {r}
 
@@ -421,7 +421,9 @@ dis_prev_by_type <- individual_dis %>%
                                   dis_any = "Any")) %>%
   select(Disability_Type, Percent)
 
-arrow::write_feather(dis_prev_by_type, "interim_data/dis_prev_by_type.feather")
+# arrow::write_feather(dis_prev_by_type, "interim_data/dis_prev_by_type.feather")
+save(dis_prev_by_type, file= "interim_data/dis_prev_by_type.Rdata")
+
 ##@MB I'd recommend using save() and load() whenever you can, since they preserve R objects as they are in the environment.
 # feather is great (even vital) for large tables since it provides an insanely compact and fast way to read tabular data. But 
   
@@ -446,13 +448,12 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   
 ```
 
-# Graph2
+## Demographics
 
-
-``` {r}
-#TODO- recode sex -> Sex and male, female to caps too (for ggplot aesthetics)
+### Sex
+``` {r sex}
   dis_by_sex <- individual_dis %>%
-  filter(year ==2023, var_type == "percent", sex %in% c("male", "female"), race == "total") %>%
+  filter(year ==2023, var_type == "percent", sex != "total", race == "total") %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -463,16 +464,21 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
-                                  dis_any = "Any"))
+                                  dis_any = "Any")) %>%
+  mutate(sex = recode(sex, 
+                      male = "Male", 
+                      female = "Female")) %>% 
+  rename(Sex = sex)
+
   
-  plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = sex)) +  # fill says split x category by sex
+  plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +  # fill says split x category by sex
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
     title = "Disabilities Breakdown by Sex (2023)",
     x = NULL,
     y = "Percent of Population"
   ) +
-  scale_fill_manual(values = c("male" = "darkblue", "female" = "lightblue")) +  # <-- note the +
+  scale_fill_manual(values = c("Male" = "darkblue", "Female" = "lightblue")) +  
   theme_minimal(base_size = 12) +
   theme(
     axis.text.x = element_text(angle = 30, hjust = 1),
@@ -482,38 +488,48 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   ggsave("interim_data/plots/dis_by_sex.png", plot= plot2)
   
 ```
+##race 
+```{r race}
+dis_by_race <- individual_dis %>%
+  filter(year == 2023, var_type == "percent", race != "total", sex == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(4,6,7) %>%
+  mutate(Disability_Type = recode(Disability_Type,
+                                  dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+  mutate(race = recode(race, 
+                      black = "Black", 
+                      hispanic = "Hispanic", 
+                      white = "White", 
+                      other = "Not Listed")) %>% 
+  rename(Race = race)
+
+plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race)) +  # fill says split x category by sex
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Race (2023)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("Black" = "darkblue", 
+                               "Hispanic" = "lightblue", 
+                               "White"= "lightgrey" , 
+                               "Not Listed"= "orange")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+  ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
+  print(plot3)
+  
 
 
-```{r, eval=FALSE}
-library(reticulate)
 
-# create a new environment
-virtualenv_create("r-reticulate")
-
-# install SciPy
-virtualenv_install("r-reticulate", c("scipy", "pandas"))
-
-# import SciPy (it will be automatically discovered in "r-reticulate")
-scipy <- import("scipy")
-pd <- import("pandas")
-plt <- import("matplotlib.pyplot")
-```
-
-```{python, eval=FALSE}
-import pandas as pd
-import matplotlib.pyplot as plt
-#step 1 load data
-df = pd.read_excel("data/KHC Project Listings by Unit Category.xlsx")
-df.head()
-
-```
-
-```{python, eval=FALSE}
-#preliminary info on total units vs accessible units (not done)
-total_units = df["Units"].sum()
-print("total units= ", total_units)
-ADA_rows = df[df["Unit Category"].str.contains("ADA", case=False)]
-ADA_units = df[df["Unit Category"].str.contains("ADA", case=False)]["Units"].sum()
-print("Filter for ADA=", ADA_rows)
-print("ADA unit count=", ADA_units)
 ```
