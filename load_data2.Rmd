@@ -30,9 +30,9 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
 options(arrow.skip_nul = TRUE)
 
 #"C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather"
-#"C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather"
+#"C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_FIPS_repwts.feather"
 
-acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather")
+acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_FIPS_repwts.feather")
 
 # base_example <- acs_micro[acs_micro$FIPS == "21111",]
 # 
@@ -54,6 +54,8 @@ acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive/microdata/acs_micro_FI
 # 
 # disability_data[1:100,] %>% select(dis_physical)
 
+disability_data <- acs_micro %>%
+  filter(year >= 2008, FIPS == "21111")
 ```
 
 ## Clean data
@@ -187,7 +189,7 @@ disability_data %<>%
     any_dis_hearing     = if_else(any(dis_hearing), T, F),
     any_dis_any         = if_else(any(dis_any), T, F)) %>% #@MB lol at this naming convention :)
 
-  ungroup() #why ungroup at the end
+  ungroup() 
 
 #@MB saving 
 arrow::write_feather(disability_data, "interim_data/disability_data.feather")
@@ -253,6 +255,7 @@ individual_dis_age_9 <- survey_by_demog(disability_data,
                                         "PERWT", 
                                         other_grouping_vars = "age_group_9")
 
+#TODO- edit this table to include all dis categories, not just dis_physical
 individual_dis_income <- survey_by_demog(disability_data, 
                                          "dis_physical", 
                                          "PERWT", 
@@ -528,8 +531,9 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
 
   ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
   print(plot3)
-  
+```
+### Income
 
-
+``` {r}
 
 ```
