@@ -397,7 +397,7 @@ individual_disability <- survey_by_demog(filter(disability_data, year == 2023),
 
 # Graphs
 
-## Graph1
+## Prevalence
 
 ``` {r}
 
@@ -488,7 +488,7 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   ggsave("interim_data/plots/dis_by_sex.png", plot= plot2)
   
 ```
-##race 
+### Race 
 ```{r race}
 dis_by_race <- individual_dis %>%
   filter(year == 2023, var_type == "percent", race != "total", sex == "total") %>%
