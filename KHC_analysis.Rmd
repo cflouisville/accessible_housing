@@ -62,11 +62,15 @@ print("\n")
 # totals and percents 
 all_accessible = ADA_units +PD_units + SN_units
 percent = (ADA_units/total_units)*100
+percentPD = (PD_units/total_units)*100
+percentSN= (SN_units/total_units)*100
 percent2 = (( ADA_units + PD_units)/total_units)*100
 percent3= (all_accessible/total_units)*100
 print(f"{percent:.2f}% of units are ADA compliant according to KHC data")
 print(f"{percent2:.2f}% of units are ADA Compliant or accessible to people with physical disabilities according to KHC data")
 print(f"{percent3:.2f}% of units are ADA Compliant or accessible to people with physical disabilities or labeled as special needs according to KHC data")
+print("PD percent: ", percentPD)
+print("SN percent: ", percentSN)
 
 ```
 # Visualize 

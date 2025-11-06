@@ -460,7 +460,8 @@ example_df %<>%
 
 ```
 
-# Graphs (Individual)
+# American Community Survey (ACS) Data
+The following section summarizes findings from ACS data on disability prevalence in Louisville, KY, highlighting how factors like race, sex, income, and age relate to disability rates. 
 
 ### Prevalence
 
@@ -511,6 +512,7 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   ggsave("interim_data/plots/dis_by_type.png", plot= plot1)
   
 ```
+
 ## Demographics
 
 ### Sex
@@ -598,6 +600,7 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
   ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
   print(plot3)
 ```
+
 ### Income (Household level)
 
 ```{r income_chart}
@@ -642,7 +645,6 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
   
 ```
 
-
 ### Age
 
 ```{r age_chart}
@@ -684,3 +686,70 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
   print(plot5)
 ```
 
+# Kentucky Housing Corporation (KHC) Data
+
+Below is a graph showing the number of accessible units in various housing developments provided by KHC. The total number of housing units in the data set was 35,862, making the largest category of accessible units (all categories combined) about 3.59% of units. 
+*Note: The differences in unit features based on categories ADA compliant, Physical Disabilities, and Special Needs have not yet been defined.*
+
+```{r KHC}
+# NOTE- this code was generated in part by an LLM converting the python code found in KHC_analysis.Rmd into R code. Results of this code have been cross checked with original (python) results to verify accuracy of code
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+
+# Load the Excel file
+df <- read_excel("data/KHC Project Listings by Unit Category.xlsx")
+
+# Total units
+total_units <- sum(df$Units, na.rm = TRUE)
+
+# Summarize by category
+summary_df <- tibble(
+  Category = c("ADA Compliant", "Physical Disabilities", "Special Needs")
+) %>%
+  rowwise() %>%
+  mutate(
+    Units = case_when(
+      Category == "ADA Compliant" ~ sum(df$Units[grepl("ADA", df$`Unit Category`, ignore.case = TRUE)], na.rm = TRUE),
+      Category == "Physical Disabilities" ~ sum(df$Units[
+        grepl("Physical", df$`Unit Type`, ignore.case = TRUE) & 
+        !grepl("ADA", df$`Unit Category`, ignore.case = TRUE)
+      ], na.rm = TRUE),
+      Category == "Special Needs" ~ sum(df$Units[grepl("Special", df$`Unit Category`, ignore.case = TRUE)], na.rm = TRUE)
+    ),
+    Percent = Units / total_units * 100
+  ) %>%
+  ungroup()
+
+# Optionally add a row for "All Accessible"
+summary_df <- summary_df %>%
+  add_row(
+    Category = "All Accessible",
+    Units = sum(summary_df$Units),
+    Percent = sum(summary_df$Percent)
+  )
+
+plot_summary <- ggplot(summary_df, aes(x = Category, y = Units)) +
+  geom_col(fill = "darkblue", width = 0.5) +
+  geom_text(
+    aes(label = Units),
+    vjust = -0.4,                 # position above bars
+    color = "darkblue",           # match bar color
+    size = 3.5,                   # readable label size
+    fontface = "bold"
+  ) +
+  labs(
+    title = "KHC Accessible Units",
+    subtitle = "Categories below are listed as defined in data provided by KHC",
+    x = NULL,
+    y = "Number of Units"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+print(plot_summary)
+```
