@@ -11,10 +11,11 @@ knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = e
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+
 library(glptools)
 glp_load_packages(T)
 
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE,  
                       dev.args=list(bg="transparent"), fig.width=9, fig.height=6) 
 
 ```
@@ -196,11 +197,10 @@ arrow::write_feather(disability_data, "interim_data/disability_data.feather")
 
 ```
 
-## Process data
-
-This takes the data that was read, filtered, processed, and saved above and does calculations.
-
 ```{r initial_calcs, eval = FALSE}
+# ## Process data
+# 
+# This takes the data that was read, filtered, processed, and saved above and does calculations.
 
 disability_data <- arrow::read_feather("interim_data/disability_data.feather")
 
@@ -323,7 +323,7 @@ save(individual_dis,
      file = "interim_data/clean_disability_data.RData")
 ```
 
-```{r create_income_table_HH}
+```{r create_income_table_HH, eval = FALSE}
 # make tables for income and each disability category
 income_and_physical <- survey_by_demog(disability_data, "dis_physical", "PERWT", 
                                        other_grouping_vars = "income_group")
@@ -363,7 +363,7 @@ income_all <- income_all %>%
 save(income_all, file= "interim_data/income_6_all_dis.RData")
 ```
 
-``` {r create_age_table}
+```{r create_age_table, eval = FALSE}
 
 #make big table 
 group_var <- "age_group_4"
@@ -398,9 +398,10 @@ rm(age_and_any, age_and_hearing, age_and_independent, age_and_physical, age_and_
 
 save(age_all, file = "interim_data/age_4_all_dis.RData")
 ```
-## @MB: Processing by hand
 
 ```{r, eval=FALSE}
+## @MB: Processing by hand
+
 # @MB You asked to see the code that does the work in the above.
 # The more specific function is glptools:::svy_repwts. It's long because it creates multiple different outputs (i.e. not only does it make the number we're looking for, but also the MOE, confidence interval, etc.)
 # The actual code that summarizes the data is:
@@ -460,9 +461,10 @@ example_df %<>%
 ```
 
 # Graphs (Individual)
+
 ### Prevalence
 
-``` {r prevalence_chart}
+```{r prevalence_chart, eval = FALSE}
 
 load("interim_data/clean_disability_data.RData")
 
@@ -510,9 +512,13 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   
 ```
 
+![](interim_data/plots/dis_by_type.png)
+
 ## Demographics
+
 ### Sex
-``` {r sex_chart}
+
+```{r sex_chart, eval = FALSE}
   #clean table- extract relevant columns, values 
 dis_by_sex <- individual_dis %>%
   filter(year ==2023, var_type == "percent", sex != "total", race == "total") %>%
@@ -550,8 +556,12 @@ plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +
   ggsave("interim_data/plots/dis_by_sex.png", plot= plot2)
   
 ```
-### Race 
-```{r race_chart}
+
+![](interim_data/plots/dis_by_sex.png)
+
+### Race
+
+```{r race_chart, eval = FALSE}
   #clean table
 dis_by_race <- individual_dis %>%
   filter(year == 2023, var_type == "percent", race != "total", sex == "total") %>%
@@ -593,9 +603,12 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
   ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
   print(plot3)
 ```
-### Income
 
-```{r income_chart}
+![](interim_data/plots/dis_by_race.png) 
+
+### Income (Household level)
+
+```{r income_chart, eval = FALSE}
 load("interim_data/income_6_all_dis.RData")
 
 #clean it
@@ -637,9 +650,11 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
   
 ```
 
-### Age 
+![](interim_data/plots/dis_by_income.png)
 
-``` {r age_chart}
+### Age
+
+```{r age_chart, eval = FALSE}
 
 #clean table
 dis_by_age <- age_all %>%
@@ -676,3 +691,5 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
   ggsave("interim_data/plots/dis_by_age.png", plot= plot5)
   print(plot5)
 ```
+
+![](interim_data/plots/dis_by_age.png)
