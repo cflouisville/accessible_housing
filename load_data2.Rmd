@@ -464,7 +464,7 @@ example_df %<>%
 
 ### Prevalence
 
-```{r prevalence_chart, eval = FALSE}
+```{r prevalence_chart}
 
 load("interim_data/clean_disability_data.RData")
 
@@ -511,14 +511,11 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   ggsave("interim_data/plots/dis_by_type.png", plot= plot1)
   
 ```
-
-![](interim_data/plots/dis_by_type.png)
-
 ## Demographics
 
 ### Sex
 
-```{r sex_chart, eval = FALSE}
+```{r sex_chart}
   #clean table- extract relevant columns, values 
 dis_by_sex <- individual_dis %>%
   filter(year ==2023, var_type == "percent", sex != "total", race == "total") %>%
@@ -557,11 +554,9 @@ plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +
   
 ```
 
-![](interim_data/plots/dis_by_sex.png)
-
 ### Race
 
-```{r race_chart, eval = FALSE}
+```{r race_chart}
   #clean table
 dis_by_race <- individual_dis %>%
   filter(year == 2023, var_type == "percent", race != "total", sex == "total") %>%
@@ -603,12 +598,9 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
   ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
   print(plot3)
 ```
-
-![](interim_data/plots/dis_by_race.png) 
-
 ### Income (Household level)
 
-```{r income_chart, eval = FALSE}
+```{r income_chart}
 load("interim_data/income_6_all_dis.RData")
 
 #clean it
@@ -650,11 +642,11 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
   
 ```
 
-![](interim_data/plots/dis_by_income.png)
 
 ### Age
 
-```{r age_chart, eval = FALSE}
+```{r age_chart}
+load(file = "interim_data/age_4_all_dis.RData")
 
 #clean table
 dis_by_age <- age_all %>%
@@ -692,4 +684,3 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
   print(plot5)
 ```
 
-![](interim_data/plots/dis_by_age.png)
