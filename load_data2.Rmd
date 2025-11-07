@@ -245,6 +245,11 @@ individual_dis_age_3 <- survey_by_demog(disability_data,
                                         "PERWT", 
                                         other_grouping_vars = "age_group_3")
 
+individual_dis_age_4 <- survey_by_demog(disability_data, 
+                                        "dis_physical", 
+                                        "PERWT", 
+                                        other_grouping_vars = "age_group_4")
+
 individual_dis_age_9 <- survey_by_demog(disability_data, 
                                         "dis_physical", 
                                         "PERWT", 
@@ -314,6 +319,7 @@ household_dis_homeownership <- survey_by_demog(disability_data_hh,
                                                breakdowns = "total")
 save(individual_dis, 
      individual_dis_age_3,
+     individual_dis_age_4,
      individual_dis_age_9,
      individual_dis_income,
      individual_dis_homeownership,
@@ -493,9 +499,11 @@ example_df %<>%
 
 The following section summarizes findings from ACS data on disability prevalence in Louisville, KY, highlighting how factors like race, sex, income, and age relate to disability rates.
 
-### Prevalence
+### Prevalence {.tabset}
 
-```{r prevalence_chart}
+#### Individual
+
+```{r prevalence_chart_indv}
 
 load("interim_data/clean_disability_data.RData")
 
@@ -519,14 +527,14 @@ dis_prev_by_type <- individual_dis %>%
 
 save(dis_prev_by_type, file= "interim_data/dis_prev_by_type.Rdata")
 
-##@MB I'd recommend using save() and load() whenever you can, since they preserve R objects as they are in the environment.
-# feather is great (even vital) for large tables since it provides an insanely compact and fast way to read tabular data. But 
-  
+dis_prev_by_type$Percent <- round(dis_prev_by_type$Percent, 2)
 
 # now to actually plot them eek
 #update not so cute but we can prettify later 
 plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   geom_col(fill = "darkblue", width = .5) +
+  geom_text(aes(label = paste0(Percent, "%")), 
+            vjust = -0.5, size = 3.5) +
   labs(
     title = "Prevalence of Disabilities by Type (2023)",
     x = NULL,
@@ -541,6 +549,47 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
 
   ggsave("interim_data/plots/dis_by_type.png", plot= plot1)
   
+```
+
+#### Household
+
+```{r prevalence_chart_HH}
+load(file = "interim_data/clean_disability_data.RData")
+
+HH_prev <- household_dis %>%
+  filter(year == 2023, var_type == "percent") %>%
+  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_hearing, any_dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(-race, -sex, -var_type, -FIPS) %>%
+  mutate(Disability_Type = recode(Disability_Type, any_dis_physical = "Physical",
+                                  any_dis_independent = "Ind. Living",
+                                  any_dis_selfcare = "Self-Care",
+                                  any_dis_vision = "Vision",
+                                  any_dis_hearing = "Hearing",
+                                  any_dis_any = "Any")) %>%
+  select(Disability_Type, Percent)
+
+save(HH_prev, file= "interim_data/HH_prev.Rdata")
+
+HH_prev$Percent <- round(HH_prev$Percent, 2)
+
+HH_prev_plot <- ggplot(HH_prev, aes(x = Disability_Type, y = Percent)) +
+  geom_col(fill = "darkblue", width = .5) +
+  geom_text(aes(label = paste0(Percent, "%")), vjust = -0.5, size = 3.5) +
+  labs(
+    title = "Households with a Person with a Disability by Type (2023)", 
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+  theme_minimal(base_size =  12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+  print(HH_prev_plot)
+
+  ggsave("interim_data/plots/HH_prev_plot.png", plot= HH_prev_plot)
 ```
 
 ## Demographics
@@ -721,6 +770,8 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
 ### Age
 
 ```{r age_chart}
+# @H im guessing were going to need to tweak the age groups again bc over 80 group is just so much higher... but also maybe thats just the way it will be no matter how we slice her up 
+
 load(file = "interim_data/age_4_all_dis.RData")
 
 #clean table
@@ -757,6 +808,172 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
 
   ggsave("interim_data/plots/dis_by_age.png", plot= plot5)
   print(plot5)
+```
+
+## Disability Trends Over Time (2008-2023)
+
+### Sex
+
+```{r sex_chart_time}
+load(file = "interim_data/clean_disability_data.RData")
+
+#phys_disability and sex over time
+sex_over_time<- individual_dis %>%
+  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), sex %in% c("male", "female"), var_type == "percent") %>% 
+  select(year, sex, dis_physical) %>%
+mutate(sex = recode(sex, 
+                      male = "Male", 
+                      female = "Female")) %>% 
+ rename(Sex = sex)
+
+#graph
+plot_sex_time <- ggplot(sex_over_time, aes(x = factor(year), y = dis_physical, fill = Sex)) +  
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) +  # side-by-side bars
+  labs(
+    title = "Physical Disability Over Time by Sex",
+    x = NULL, 
+    y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("Male" = "lightblue", "Female" = "darkblue")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+ggsave("interim_data/plots/dis_physical_by_sex_time.png", plot = plot_sex_time)
+print(plot_sex_time)
+```
+
+### Race
+
+```{r race_chart_time}
+load(file = "interim_data/clean_disability_data.RData")
+
+#phys_disability and race over time
+race_over_time<- individual_dis %>%
+  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race != "total", sex == "total", var_type == "percent") %>% 
+  select(year, race, dis_physical) %>%
+mutate(race = recode(race, 
+                      white = "White", black = "Black", hispanic = "Hispanic", other= "Not Listed" )) %>% 
+ rename(Race = race)
+
+
+plot_race_time <- ggplot(race_over_time, aes(x = factor(year), y = dis_physical, fill = Race)) +  
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) +  # side-by-side bars
+  labs(
+    title = "Physical Disability Over Time by Race",
+    x = NULL, 
+    y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("Black" = "darkblue", 
+                               "Hispanic" = "lightblue", 
+                               "White"= "lightgrey" , 
+                               "Not Listed"= "orange")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+ggsave("interim_data/plots/dis_physical_by_race_time.png", plot = plot_race_time)
+print(plot_race_time)
+```
+
+### Own Vs Rent
+
+```{r own_vs_rent_time}
+load(file = "interim_data/clean_disability_data.RData")
+
+#phys_disability and race over time
+homeownership_over_time<- individual_dis_homeownership %>%
+  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", !is.na(homeownership), var_type == "percent") %>%
+  select(year, homeownership, dis_physical) %>%
+  mutate(Homeownership = if_else(homeownership, "Owns", "Rents")
+  ) %>%
+  select(-homeownership)
+
+plot_owns_time <- ggplot(homeownership_over_time, aes(x = factor(year), y = dis_physical, fill = Homeownership)) +  
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) +  # side-by-side bars
+  labs(
+    title = "Physical Disability Over Time by Homeownership",
+    x = NULL, 
+    y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("Owns" = "lightblue", "Rents" = "darkblue")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+ggsave("interim_data/plots/dis_physical_by_owns_time.png", plot = plot_owns_time)
+print(plot_owns_time)
+```
+
+### Income
+
+```{r income_graph_time}
+load(file = "interim_data/clean_disability_data.RData")
+
+income_over_time<- individual_dis_income %>%
+  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", var_type == "percent") %>%
+  select(year, income_group, dis_physical) %>%
+  rename(Income = income_group)
+
+plot_income_time <- ggplot(income_over_time, aes(x = factor(year), y = dis_physical, fill = Income)) + 
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) +  # side-by-side bars
+  labs(
+    title = "Physical Disability Over Time by Income Group",
+    x = NULL, 
+    y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("150k+"    = "#c6dbef",
+                                "100k–149.9k"    = "#9ecae1",
+                                "75k–99.9k"    = "#6baed6",
+                                "50k–74.9k"    = "#4292c6", 
+                                "20k–49.9k"  = "#2171b5",
+                                "Under 20k"        = "#084594")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+ggsave("interim_data/plots/dis_physical_by_income_time.png", plot = plot_income_time)
+print(plot_income_time)
+```
+
+### Age
+
+```{r age_graph_time}
+load(file = "interim_data/clean_disability_data.RData")
+
+age_over_time<- individual_dis_age_4 %>%
+  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", !is.na(age_group_4), var_type == "percent") %>%
+  select(year, age_group_4, dis_physical) %>%
+  rename(Age = age_group_4)
+  
+
+plot_age_time <- ggplot(age_over_time, aes(x = factor(year), y = dis_physical, fill = Age)) +
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) +  # side-by-side bars
+  labs(
+    title = "Physical Disability Over Time by Age Group",
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("50-64" = "darkblue",
+                               "65-80" = "lightblue",
+                               "80 or Older"= "lightgrey" ,
+                               "Under 50"= "orange")) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+ggsave("interim_data/plots/dis_physical_by_age_time.png", plot = plot_age_time)
+print(plot_age_time)
 ```
 
 # Kentucky Housing Corporation (KHC) Data
@@ -807,7 +1024,6 @@ plot_summary <- ggplot(summary_df, aes(x = Category, y = Units)) +
   geom_text(
     aes(label = Units),
     vjust = -0.4,                 # position above bars
-    color = "darkblue",           # match bar color
     size = 3.5,                   # readable label size
     fontface = "bold"
   ) +
