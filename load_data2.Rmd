@@ -11,26 +11,25 @@ knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = e
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+
 library(glptools)
 glp_load_packages(T)
 
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE,  
                       dev.args=list(bg="transparent"), fig.width=9, fig.height=6) 
 
 ```
 
+```{r read_data, eval = FALSE}
 # Analyze ACS disability data
-
-## Read in data
-
-```{r example_code, eval = FALSE}
+# Read in data
 
 # @Morgan this file is so named because it is ACS Microdata that is cut down to just counties/FIPS (as opposed to observations across the MSA, which takes longer to read in and work with) and includes replicate weights.
 
 options(arrow.skip_nul = TRUE)
 
 #"C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather"
-#"C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather"
+
 
 
 acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
@@ -40,6 +39,8 @@ disability_data <- acs_micro %>%
 
 save(disability_data, file = "interim_data/acs_micro_subset.RData")
 
+=======
+acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_FIPS_repwts.feather")
 
 # base_example <- acs_micro[acs_micro$FIPS == "21111",]
 # 
@@ -61,30 +62,25 @@ save(disability_data, file = "interim_data/acs_micro_subset.RData")
 # 
 # disability_data[1:100,] %>% select(dis_physical)
 
+disability_data <- acs_micro %>%
+ filter(year >= 2008, FIPS == "21111")
 ```
 
-## Clean data
+```{r clean_data, eval = FALSE}
+# Clean data, set grouping variables
 
-```{r, eval = FALSE}
+# The ACS disability questions were significantly modified in 2008, so we will only use data from 2008 onward so that all of the years are comparable. Limit scope to Lou to make code faster initially- may undo subset later
 
-# The ACS disability questions were significantly modified in 2008, so we will only use data from 2008 onward so that all of the years are comparable.
-### @Morgan: I do this first to make the rest of the code run faster. I might undo the subset to Louisville later, 
+#Morgan- load("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_subset.RData")
 
-disability_data <- acs_micro %>%
-  filter(year >= 2008, FIPS == "21111")
-
-# Recode disability variables
-# Find info on each variable here: https://usa.ipums.org/usa/index.shtml
+# RECODE DISABILITY VARIABLES. Find info here: https://usa.ipums.org/usa/index.shtml
+# @Morgan case_when evaluates from top to bottom. If the value on the left is true, it assigns the value on the right.
 
 disability_data %<>%
   mutate(
-    
-    # RECODE DISABILITY VARIABLES
-    #@Morgan case_when evaluates from top to bottom. If the value on the left is true, it assigns the value on the right.
-    
     # Ambulatory difficulty
     dis_physical = case_when(
-      DIFFPHYS == 0 ~ NA,     #@Morgan the tilde indicates formula
+      DIFFPHYS == 0 ~ NA, #tilde indicates formula
       DIFFPHYS == 1 ~ F,
       DIFFPHYS == 2 ~ T),
     
@@ -120,13 +116,19 @@ disability_data %<>%
     dis_any = if_else((dis_physical + dis_independent + dis_selfcare + dis_vision + dis_hearing) > 0, T, F),
     
     # RECODE OTHER CATEGORY VARIABLES
+    # Age group- Not sure how many buckets I want, so I make two versions! We will see what provides meaningful information, and how deep we can disaggregate before the data becomes to noisy.
     
-    # Age group
-    # @Morgan Not sure how many buckets I want, so I make two versions! We will see what provides meaningful information, and how deep we can disaggregate before the data becomes to noisy.
     age_group_3 = case_when(      
       age %in% 5:18 ~ "5_18",
       age %in% 19:64 ~ "19_64",
       age > 65 ~ "65+"),
+    
+    #age group found in Harvard Survey Analysis -M
+    age_group_4 = case_when( 
+      age < 50 ~ "Under 50", 
+      age %in% 51:64 ~ "50-64", 
+      age %in% 65:80 ~ "65-80", 
+      age > 80 ~ "80 or Older"), 
     
     age_group_9 = case_when(
       age %in% 0:9 ~ NA_character_, #@Morgan NA can have different types! NA alone is a logical. Common source of errors.
@@ -141,17 +143,20 @@ disability_data %<>%
     
   # Income group
   # @Morgan the relevant income in this situation is probably household income over individual earnings. Unlike other variables included here, this is the same for all members of a household.
+  #^ so do we use income in our individual demographic breakdown charts at all? -M
   
     HHINCOME = replace(HHINCOME, HHINCOME == 99999, NA),
   
     income_group = case_when(
-      HHINCOME <= quantile(HHINCOME, probs = 0.4) ~ 'LH',
-      HHINCOME <= quantile(HHINCOME, probs = 0.8) ~ 'UH',
-      HHINCOME > quantile(HHINCOME, probs = 0.8) ~ 'T20',
-      TRUE ~ NA_character_), #@Morgan example of a catchall statement at the end of a case_when for if you don't specify a new value for every case. "TRUE" could also be "is.na(HHICOME)"
+      HHINCOME < 20000 ~ "Under 20k",
+      HHINCOME >= 20000 & HHINCOME < 50000 ~ "20k–49.9k",
+      HHINCOME >= 50000 & HHINCOME < 75000 ~ "50k–74.9k",
+      HHINCOME >= 75000 & HHINCOME < 100000 ~ "75k–99.9k",
+      HHINCOME >= 100000 & HHINCOME < 150000 ~ "100k–149.9k",
+      HHINCOME >= 150000 ~ "150k+",
+      TRUE ~ NA_character_  ),  # catch-all for missing/unspecified values, "TRUE" could also be "is.na(HHICOME)"
   
-  # Homeownership 
-  # @Morgan Not sure if we'll use them all. Rent vs. own for sure, unsure about others.
+  # Homeownership- Not sure if we'll use them all. Rent vs. own for sure, unsure about others.
   
     OWNCOST  = replace(OWNCOST, OWNCOST == 99999, NA),
     OWNERSHP = replace(OWNERSHP, OWNERSHP == 0, NA),
@@ -194,7 +199,7 @@ disability_data %<>%
     any_dis_hearing     = if_else(any(dis_hearing), T, F),
     any_dis_any         = if_else(any(dis_any), T, F)) %>% #@MB lol at this naming convention :)
 
-  ungroup() #why ungroup at the end
+  ungroup() 
 
 #@MB saving 
 arrow::write_feather(disability_data, "interim_data/disability_data.feather")
@@ -202,11 +207,10 @@ arrow::write_feather(disability_data, "interim_data/disability_data.feather")
 
 ```
 
-## Process data
-
-This takes the data that was read, filtered, processed, and saved above and does calculations.
-
-```{r, eval = FALSE}
+```{r initial_calcs, eval = FALSE}
+# ## Process data
+# 
+# This takes the data that was read, filtered, processed, and saved above and does calculations.
 
 disability_data <- arrow::read_feather("interim_data/disability_data.feather")
 
@@ -216,7 +220,6 @@ disability_data <- arrow::read_feather("interim_data/disability_data.feather")
 # But the documentation is at times outdated or incomplete. You can always view inside the function, particularly to see what arguments are provided.
 
 # All disabilities x race and sex
-
 individual_dis_physical    <- survey_by_demog(disability_data, "dis_physical",    "PERWT")
 individual_dis_independent <- survey_by_demog(disability_data, "dis_independent", "PERWT")
 individual_dis_selfcare    <- survey_by_demog(disability_data, "dis_selfcare",    "PERWT")
@@ -225,15 +228,13 @@ individual_dis_hearing     <- survey_by_demog(disability_data, "dis_hearing",   
 individual_dis_any         <- survey_by_demog(disability_data, "dis_any",         "PERWT")
 
 # Combine data frames
-
 # @MB: the functions for you to know are left_join and full_join, etc.
 # This would work here because the data frame starts out super organized and the columns in common are tidy, but normally you need to do more specification on which columns are supposed to match up, etc.
 # individual_dis <- left_join(individual_dis_physical, individual_dis_independent)
 # individual_dis <- left_join(individual_dis, individual_dis_selfcare)
 # ...
 
-# This is a custom glptools shortcut
-
+# Custom glptools shortcut
 individual_dis <- bind_df(individual_dis_physical, 
                           individual_dis_independent,
                           individual_dis_selfcare,
@@ -247,7 +248,6 @@ rm(individual_dis_physical, individual_dis_independent, individual_dis_selfcare,
 
 
 # @MB turns out I DID write this code to let us group by other variables! Lit.
-
 # Physical disability X age, income, and homeownership X race and sex
 
 individual_dis_age_3 <- survey_by_demog(disability_data, 
@@ -270,11 +270,17 @@ individual_dis_homeownership <- survey_by_demog(disability_data,
                                                 "PERWT", 
                                                 other_grouping_vars = "homeownership")
 
+dis_vars <- c("dis_physical", "dis_independent", "dis_selfcare", "dis_vision", "dis_hearing")
 
+income_and_hearing <- survey_by_demog(disability_data, 
+                                         "dis_hearing", 
+                                         "PERWT", 
+                                         other_grouping_vars = "income_group")
 
-
+                                        
 
 # What percentage of Louisville households include a person with a disability?
+
 # @MB Every person within a household is identified by PERNUM. Variables that apply to the household will have the same value for every individual in that household, so we just need one row per household. We filter to just the first person in each household with PERNUM == 1.
 
 disability_data_hh <- disability_data %>%
@@ -305,7 +311,6 @@ rm(household_dis_physical, household_dis_independent, household_dis_selfcare, ho
 #@MB note HHWT rather than PERWT 
 
 # Physical disability x income and homeownership
-
 household_dis_income <- survey_by_demog(disability_data_hh, 
                                          "any_dis_physical", 
                                          "HHWT", 
@@ -317,7 +322,6 @@ household_dis_homeownership <- survey_by_demog(disability_data_hh,
                                                "HHWT", 
                                                other_grouping_vars = "homeownership",
                                                breakdowns = "total")
-
 save(individual_dis, 
      individual_dis_age_3,
      individual_dis_age_9,
@@ -327,26 +331,125 @@ save(individual_dis,
      household_dis_income,
      household_dis_homeownership, 
      file = "interim_data/clean_disability_data.RData")
-
 ```
 
-## @MB: Processing by hand
+```{r create_income_table_HH, eval = FALSE}
+# make tables for income and each disability category
+income_and_physical <- survey_by_demog(disability_data, "dis_physical", "PERWT", 
+                                       other_grouping_vars = "income_group")
+income_and_independent <- survey_by_demog(disability_data, "dis_independent", "PERWT",
+                                          other_grouping_vars = "income_group")
+income_and_selfcare <- survey_by_demog(disability_data, "dis_selfcare","PERWT", 
+                                       other_grouping_vars = "income_group")
+income_and_vision <- survey_by_demog(disability_data, "dis_vision","PERWT", 
+                                     other_grouping_vars = "income_group")
+income_and_hearing <- survey_by_demog(disability_data, "dis_hearing", "PERWT", 
+                                      other_grouping_vars = "income_group")
+income_and_any <- survey_by_demog(disability_data, "dis_any", "PERWT",  
+                                  other_grouping_vars = "income_group")
+
+# @Harrison using left_join here bc bind_df() was creating a lot of income_group.x.xx etc and i didn't know how to prevent that so...
+income_all <- income_and_hearing %>%
+  left_join(income_and_independent, 
+            by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(income_and_physical, 
+            by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(income_and_vision, 
+            by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(income_and_any, 
+            by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(income_and_selfcare, 
+            by = c("FIPS","year","sex","race","var_type","income_group"))
+
+# time for cleanup
+rm(income_and_any, income_and_hearing, income_and_independent, income_and_physical, income_and_selfcare, income_and_vision)
+
+#make income group a factor so legend will be correctly ordered 
+income_levels <- c("150k+", "100k–149.9k", "75k–99.9k","50k–74.9k", "20k–49.9k", "Under 20k")
+
+income_all <- income_all %>%
+  mutate(income_group = factor(income_group, levels = income_levels))
+
+save(income_all, file= "interim_data/income_6_all_dis.RData")
+```
+
+```{r create_own_vs_rent_table, eval= FALSE}
+homeownership_dis_physical <- survey_by_demog(disability_data, "dis_physical", "PERWT", 
+                                       other_grouping_vars = "homeownership")
+homeownership_dis_independent <- survey_by_demog(disability_data, "dis_independent", "PERWT",
+                                          other_grouping_vars = "homeownership")
+homeownership_dis_selfcare <- survey_by_demog(disability_data, "dis_selfcare","PERWT", 
+                                       other_grouping_vars = "homeownership")
+homeownership_dis_vision <- survey_by_demog(disability_data, "dis_vision","PERWT", 
+                                     other_grouping_vars = "homeownership")
+homeownership_dis_hearing <- survey_by_demog(disability_data, "dis_hearing", "PERWT", 
+                                      other_grouping_vars = "homeownership")
+homeownership_dis_any <- survey_by_demog(disability_data, "dis_any", "PERWT",  
+                                  other_grouping_vars = "homeownership")
+
+homeownership_all <- homeownership_dis_physical %>%
+  left_join(homeownership_dis_independent, by = c("FIPS","year","sex","race","var_type","homeownership")) %>%
+  left_join(homeownership_dis_selfcare, by = c("FIPS","year","sex","race","var_type","homeownership")) %>%
+  left_join(homeownership_dis_vision, by = c("FIPS","year","sex","race","var_type","homeownership")) %>%
+  left_join(homeownership_dis_hearing, by = c("FIPS","year","sex","race","var_type","homeownership")) %>%
+  left_join(homeownership_dis_any, by = c("FIPS","year","sex","race","var_type","homeownership"))
+
+#clean
+rm(homeownership_dis_physical, homeownership_dis_independent, 
+   homeownership_dis_selfcare, homeownership_dis_vision, 
+   homeownership_dis_hearing, homeownership_dis_any)
+
+save(homeownership_all, file = "interim_data/homeownership_all_dis.RData")
+```
+
+```{r create_age_table, eval = FALSE}
+
+#make big table 
+group_var <- "age_group_4"
+
+age_and_physical <- survey_by_demog(disability_data, "dis_physical", "PERWT", 
+                                    other_grouping_vars = "age_group_4")
+age_and_independent <- survey_by_demog(disability_data, "dis_independent", "PERWT",
+                                       other_grouping_vars = group_var)
+age_and_selfcare <- survey_by_demog(disability_data, "dis_selfcare", "PERWT", 
+                                    other_grouping_vars = group_var)
+age_and_vision <- survey_by_demog(disability_data, "dis_vision", "PERWT", 
+                                  other_grouping_vars = group_var)
+age_and_hearing <- survey_by_demog(disability_data, "dis_hearing", "PERWT", 
+                                   other_grouping_vars = group_var)
+age_and_any <- survey_by_demog(disability_data, "dis_any", "PERWT",  
+                               other_grouping_vars = group_var)
+
+age_all <- age_and_hearing %>%
+  left_join(age_and_independent, by = c("FIPS","year","sex","race","var_type", group_var)) %>%
+  left_join(age_and_physical,   by = c("FIPS","year","sex","race","var_type", group_var)) %>%
+  left_join(age_and_vision,     by = c("FIPS","year","sex","race","var_type", group_var)) %>%
+  left_join(age_and_any,        by = c("FIPS","year","sex","race","var_type", group_var)) %>%
+  left_join(age_and_selfcare,   by = c("FIPS","year","sex","race","var_type", group_var))
+
+#factorize so legend is ordered
+age_levels <- c("Under 50", "50-64", "65-80", "80 or Older")
+
+age_all <- age_all %>%
+  mutate(age_group_4 = factor(age_group_4, levels = age_levels, ordered = TRUE))
+
+rm(age_and_any, age_and_hearing, age_and_independent, age_and_physical, age_and_selfcare, age_and_vision)
+
+save(age_all, file = "interim_data/age_4_all_dis.RData")
+```
 
 ```{r, eval=FALSE}
+## @MB: Processing by hand
 
 # @MB You asked to see the code that does the work in the above.
-# 
 # The more specific function is glptools:::svy_repwts. It's long because it creates multiple different outputs (i.e. not only does it make the number we're looking for, but also the MOE, confidence interval, etc.)
-# 
 # The actual code that summarizes the data is:
 #
 # results_estimate %<>%
 #   group_by(across(all_of(c(grouping_vars, var)))) %>%
 #   summarise(estimate = sum(.data[[weight_var]]), .groups = "drop")
-#
 
-# To write that with the specific variables used here:
-
+# To write that with the specific variables used here: 
 # This filters to rows where none of the columns specified in that character vector are NA.
 # It can be complicated to figure out when to use quoted vs. unquoted variable names. While filter normally works with unquoted variables, I need to use quoted strings for Dplyr to use if_all to find them in the data frame, then apply the formula ~!is.na(.) to them all.
 
@@ -354,17 +457,14 @@ example_df <- disability_data %>%
   filter(if_all(c("FIPS", "year", "sex", "race", "dis_physical"), ~!is.na(.))) 
 
 # Count the number of cases for each value of dis_physical within each demographic category.
-
 example_df %<>%
   group_by(FIPS, year, sex, race, dis_physical) %>%
   summarise(estimate = sum(PERWT), .groups = "drop") #You can either use ungroup() the function, or specify .groups = "drop" to ungroup data.
 
 # Summarize the data and create a percentage
-
 example_df %<>%
   
   # Note that I'm not grouping by dis_physical here. This creates "mini-data frames" where each one has exactly three rows: one for each value of dis_physical. (T, F, & NA)
-  
   group_by(FIPS, year, sex, race) %>% 
   
   mutate(
@@ -375,17 +475,14 @@ example_df %<>%
 example_df %<>%
   filter(dis_physical) %>% # I just want the rows where this is true
   select(-dis_physical)
-
-
 ```
 
-## Revisiting some things
-
-survey_by_demog is mainly a wrapper function that calls svy_repwts or svy_bootstrap multiple times and combines the results.
-
-The notation in R to access a function without loading in a package (or to specify the package to address conflicts in the namespace) is a double colon. Some packages, including glptools, include functions that are not loaded into the namespace at all. Those are available via triple colon.
-
 ```{r, eval = FALSE}
+# ## Revisiting some things
+# 
+# survey_by_demog is mainly a wrapper function that calls svy_repwts or svy_bootstrap multiple times and combines the results.
+# 
+# The notation in R to access a function without loading in a package (or to specify the package to address conflicts in the namespace) is a double colon. Some packages, including glptools, include functions that are not loaded into the namespace at all. Those are available via triple colon.
 
 # The confidence intervals tend to fall apart at small values.
 # Bootstrapping is a method used to generate confidence intervals by re-sampling the observations themselves. It does discard some information the Census bakes in via their replicate weights, but notably, it provides separate numbers for the lower bound and upper bound, rather than one MOE and CI.
@@ -394,19 +491,21 @@ The notation in R to access a function without loading in a package (or to speci
 
 # I am largely unable to follow my own code to create bootstrap weights at this point. It uses the map_ functions, which are a part of the purrr package of the tidyverse. The map_ functions can typically replace for loops in R, offer performance benefits, and allow you to write shorter code. However, they come with a level of incredible complexity that I can't follow any more. You're doing a lot "behind the curtain" kind of like you can do with group_by() %>% summarize(), but it extends beyond doing simple math on each individual group and extends it to more complex operations.
 
-individual_disability <- survey_by_demog(filter(disability_data, year == 2023), 
-                                         "dis_physical", 
-                                         "PERWT",
-                                         method = "bootstrap",
-                                         breakdowns = "total")
+# individual_disability <- survey_by_demog(filter(disability_data, year == 2023), 
+#                                          "dis_physical", 
+#                                          "PERWT",
+#                                          method = "bootstrap",
+#                                          breakdowns = "total")
 
 ```
 
-# Graphs
+# American Community Survey (ACS) Data
 
-# Graph1
+The following section summarizes findings from ACS data on disability prevalence in Louisville, KY, highlighting how factors like race, sex, income, and age relate to disability rates.
 
-``` {r}
+### Prevalence
+
+```{r prevalence_chart}
 
 load("interim_data/clean_disability_data.RData")
 
@@ -428,7 +527,8 @@ dis_prev_by_type <- individual_dis %>%
                                   dis_any = "Any")) %>%
   select(Disability_Type, Percent)
 
-arrow::write_feather(dis_prev_by_type, "interim_data/dis_prev_by_type.feather")
+save(dis_prev_by_type, file= "interim_data/dis_prev_by_type.Rdata")
+
 ##@MB I'd recommend using save() and load() whenever you can, since they preserve R objects as they are in the environment.
 # feather is great (even vital) for large tables since it provides an insanely compact and fast way to read tabular data. But 
   
@@ -453,13 +553,14 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   
 ```
 
-# Graph2
+## Demographics
 
+### Sex
 
-``` {r}
-#TODO- recode sex -> Sex and male, female to caps too (for ggplot aesthetics)
-  dis_by_sex <- individual_dis %>%
-  filter(year ==2023, var_type == "percent", sex %in% c("male", "female"), race == "total") %>%
+```{r sex_chart}
+  #clean table- extract relevant columns, values 
+dis_by_sex <- individual_dis %>%
+  filter(year ==2023, var_type == "percent", sex != "total", race == "total") %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -470,16 +571,21 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
-                                  dis_any = "Any"))
-  
-  plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = sex)) +  # fill says split x category by sex
+                                  dis_any = "Any")) %>%
+  mutate(sex = recode(sex, 
+                      male = "Male", 
+                      female = "Female")) %>% 
+ rename(Sex = sex)
+
+  #create chart
+plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +  # fill says split x category by sex
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
     title = "Disabilities Breakdown by Sex (2023)",
     x = NULL,
     y = "Percent of Population"
   ) +
-  scale_fill_manual(values = c("male" = "darkblue", "female" = "lightblue")) +  # <-- note the +
+  scale_fill_manual(values = c("Male" = "darkblue", "Female" = "lightblue")) +  
   theme_minimal(base_size = 12) +
   theme(
     axis.text.x = element_text(angle = 30, hjust = 1),
@@ -490,37 +596,242 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   
 ```
 
+### Race
 
-```{r, eval=FALSE}
-library(reticulate)
+```{r race_chart}
+  #clean table
+dis_by_race <- individual_dis %>%
+  filter(year == 2023, var_type == "percent", race != "total", sex == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(4,6,7) %>%
+  mutate(Disability_Type = recode(Disability_Type,
+                                  dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+  mutate(race = recode(race, 
+                      black = "Black", 
+                      hispanic = "Hispanic", 
+                      white = "White", 
+                      other = "Not Listed")) %>% 
+  rename(Race = race)
 
-# create a new environment
-virtualenv_create("r-reticulate")
+  #make chart
+plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race)) +  # fill says split x category by sex
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Race (2023)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("Black" = "darkblue", 
+                               "Hispanic" = "lightblue", 
+                               "White"= "lightgrey" , 
+                               "Not Listed"= "orange")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
 
-# install SciPy
-virtualenv_install("r-reticulate", c("scipy", "pandas"))
-
-# import SciPy (it will be automatically discovered in "r-reticulate")
-scipy <- import("scipy")
-pd <- import("pandas")
-plt <- import("matplotlib.pyplot")
+  ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
+  print(plot3)
 ```
 
-```{python, eval=FALSE}
-import pandas as pd
-import matplotlib.pyplot as plt
-#step 1 load data
-df = pd.read_excel("data/KHC Project Listings by Unit Category.xlsx")
-df.head()
+### Own vs. Rent
+
+```{r}
+load("interim_data/homeownership_all_dis.RData")
+
+#clean it
+dis_by_own <- homeownership_all %>%
+  filter(year == 2023, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(homeownership, Disability_Type,Percent) %>%
+  mutate(
+    Disability_Type = recode(Disability_Type,
+                             dis_physical = "Physical",
+                             dis_independent = "Ind. Living",
+                             dis_selfcare = "Self-Care",
+                             dis_vision = "Vision",
+                             dis_hearing = "Hearing",
+                             dis_any = "Any"),
+    Homeownership = if_else(homeownership, "Owns", "Rents")
+  ) %>%
+  select(-homeownership)
+
+#chart it!
+plot6 <- ggplot(dis_by_own, aes(x = Disability_Type, y = Percent, fill = Homeownership)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Homeownership (2023)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("Owns" = "lightblue", "Rents" = "darkblue")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+  ggsave("interim_data/plots/dis_by_homeownership.png", plot= plot6)
+  print(plot6)
 
 ```
 
-```{python, eval=FALSE}
-#preliminary info on total units vs accessible units (not done)
-total_units = df["Units"].sum()
-print("total units= ", total_units)
-ADA_rows = df[df["Unit Category"].str.contains("ADA", case=False)]
-ADA_units = df[df["Unit Category"].str.contains("ADA", case=False)]["Units"].sum()
-print("Filter for ADA=", ADA_rows)
-print("ADA unit count=", ADA_units)
+### Income (Household level)
+
+```{r income_chart}
+load("interim_data/income_6_all_dis.RData")
+
+#clean it
+dis_by_income <- income_all %>%
+  filter(year == 2023, var_type == "percent", sex == "total", race == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(income_group, Disability_Type,Percent) %>%
+  mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+rename("Income Group" = income_group)
+
+#chart it!
+plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Income Group`)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Income (2023)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("150k+"    = "#c6dbef",
+                                "100k–149.9k"    = "#9ecae1",
+                                "75k–99.9k"    = "#6baed6",
+                                "50k–74.9k"    = "#4292c6", 
+                                "20k–49.9k"  = "#2171b5",
+                                "Under 20k"        = "#084594")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+  ggsave("interim_data/plots/dis_by_income.png", plot= plot4)
+  print(plot4)
+  
+```
+
+### Age
+
+```{r age_chart}
+load(file = "interim_data/age_4_all_dis.RData")
+
+#clean table
+dis_by_age <- age_all %>%
+  filter(year == 2023, sex == "total", race == "total", var_type == "percent",!is.na(age_group_4)) %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>% 
+  mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+  select(age_group_4, Disability_Type, Percent) %>% 
+  rename(Age = age_group_4)
+
+#chart it!
+plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Age (2023)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = c("50-64" = "darkblue", 
+                               "65-80" = "lightblue", 
+                               "80 or Older"= "lightgrey" , 
+                               "Under 50"= "orange")) +  
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+  ggsave("interim_data/plots/dis_by_age.png", plot= plot5)
+  print(plot5)
+```
+
+# Kentucky Housing Corporation (KHC) Data
+
+Below is a graph showing the number of accessible units in various housing developments provided by KHC. The total number of housing units in the data set was 35,862, making the largest category of accessible units (all categories combined) about 3.59% of units. *Note: The differences in unit features based on categories ADA compliant, Physical Disabilities, and Special Needs have not yet been defined.*
+
+```{r KHC}
+# NOTE- this code was generated in part by an LLM converting the python code found in KHC_analysis.Rmd into R code. Results of this code have been cross checked with original (python) results to verify accuracy of code
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+
+# Load the Excel file
+df <- read_excel("data/KHC Project Listings by Unit Category.xlsx")
+
+# Total units
+total_units <- sum(df$Units, na.rm = TRUE)
+
+# Summarize by category
+summary_df <- tibble(
+  Category = c("ADA Compliant", "Physical Disabilities", "Special Needs")
+) %>%
+  rowwise() %>%
+  mutate(
+    Units = case_when(
+      Category == "ADA Compliant" ~ sum(df$Units[grepl("ADA", df$`Unit Category`, ignore.case = TRUE)], na.rm = TRUE),
+      Category == "Physical Disabilities" ~ sum(df$Units[
+        grepl("Physical", df$`Unit Type`, ignore.case = TRUE) & 
+        !grepl("ADA", df$`Unit Category`, ignore.case = TRUE)
+      ], na.rm = TRUE),
+      Category == "Special Needs" ~ sum(df$Units[grepl("Special", df$`Unit Category`, ignore.case = TRUE)], na.rm = TRUE)
+    ),
+    Percent = Units / total_units * 100
+  ) %>%
+  ungroup()
+
+# Optionally add a row for "All Accessible"
+summary_df <- summary_df %>%
+  add_row(
+    Category = "All Accessible",
+    Units = sum(summary_df$Units),
+    Percent = sum(summary_df$Percent)
+  )
+
+plot_summary <- ggplot(summary_df, aes(x = Category, y = Units)) +
+  geom_col(fill = "darkblue", width = 0.5) +
+  geom_text(
+    aes(label = Units),
+    vjust = -0.4,                 # position above bars
+    color = "darkblue",           # match bar color
+    size = 3.5,                   # readable label size
+    fontface = "bold"
+  ) +
+  labs(
+    title = "KHC Accessible Units",
+    subtitle = "Categories below are listed as defined in data provided by KHC",
+    x = NULL,
+    y = "Number of Units"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+print(plot_summary)
 ```

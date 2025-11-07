@@ -255,43 +255,48 @@ div.tocify {
 </div>
 
 
-<div id="analyze-acs-disability-data" class="section level1">
-<h1>Analyze ACS disability data</h1>
-<div id="read-in-data" class="section level2">
-<h2>Read in data</h2>
+<div id="american-community-survey-acs-data" class="section level1">
+<h1>American Community Survey (ACS) Data</h1>
+<p>The following section summarizes findings from ACS data on disability
+prevalence in Louisville, KY, highlighting how factors like race, sex,
+income, and age relate to disability rates.</p>
+<div id="prevalence" class="section level3">
+<h3>Prevalence</h3>
+<p><img src="index_files/figure-html/prevalence_chart-1.png" width="864" /></p>
 </div>
-<div id="clean-data" class="section level2">
-<h2>Clean data</h2>
+<div id="demographics" class="section level2">
+<h2>Demographics</h2>
+<div id="sex" class="section level3">
+<h3>Sex</h3>
+<p><img src="index_files/figure-html/sex_chart-1.png" width="864" /></p>
 </div>
-<div id="process-data" class="section level2">
-<h2>Process data</h2>
-<p>This takes the data that was read, filtered, processed, and saved
-above and does calculations.</p>
+<div id="race" class="section level3">
+<h3>Race</h3>
+<p><img src="index_files/figure-html/race_chart-1.png" width="864" /></p>
 </div>
-<div id="mb-processing-by-hand" class="section level2">
-<h2><span class="citation">@MB</span>: Processing by hand</h2>
+<div id="own-vs.-rent" class="section level3">
+<h3>Own vs. Rent</h3>
+<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" width="864" /></p>
 </div>
-<div id="revisiting-some-things" class="section level2">
-<h2>Revisiting some things</h2>
-<p>survey_by_demog is mainly a wrapper function that calls svy_repwts or
-svy_bootstrap multiple times and combines the results.</p>
-<p>The notation in R to access a function without loading in a package
-(or to specify the package to address conflicts in the namespace) is a
-double colon. Some packages, including glptools, include functions that
-are not loaded into the namespace at all. Those are available via triple
-colon.</p>
+<div id="income-household-level" class="section level3">
+<h3>Income (Household level)</h3>
+<p><img src="index_files/figure-html/income_chart-1.png" width="864" /></p>
+</div>
+<div id="age" class="section level3">
+<h3>Age</h3>
+<p><img src="index_files/figure-html/age_chart-1.png" width="864" /></p>
 </div>
 </div>
-<div id="graphs" class="section level1">
-<h1>Graphs</h1>
 </div>
-<div id="graph1" class="section level1">
-<h1>Graph1</h1>
-<p><img src="index_files/figure-html/unnamed-chunk-5-1.png" width="864" /></p>
-</div>
-<div id="graph2" class="section level1">
-<h1>Graph2</h1>
-<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" width="864" /></p>
+<div id="kentucky-housing-corporation-khc-data" class="section level1">
+<h1>Kentucky Housing Corporation (KHC) Data</h1>
+<p>Below is a graph showing the number of accessible units in various
+housing developments provided by KHC. The total number of housing units
+in the data set was 35,862, making the largest category of accessible
+units (all categories combined) about 3.59% of units. <em>Note: The
+differences in unit features based on categories ADA compliant, Physical
+Disabilities, and Special Needs have not yet been defined.</em></p>
+<p><img src="index_files/figure-html/KHC-1.png" width="864" /></p>
 </div>
 
 
