@@ -32,7 +32,14 @@ options(arrow.skip_nul = TRUE)
 #"C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather"
 #"C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather"
 
-acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive/microdata/acs_micro_FIPS_repwts.feather")
+
+acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
+
+disability_data <- acs_micro %>%
+  filter(year >= 2008, FIPS == "21111")
+
+save(disability_data, file = "interim_data/acs_micro_subset.RData")
+
 
 # base_example <- acs_micro[acs_micro$FIPS == "21111",]
 # 
