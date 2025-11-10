@@ -2,6 +2,7 @@
 title: "Accessible Housing"
 output:
   html_document:
+    css: styles.css
     self_contained: false
     toc: yes
     toc_float: yes
@@ -539,7 +540,7 @@ example_df %<>%
 
 ```
 
-# American Community Survey (ACS) Data
+# American Community Survey (ACS)
 
 The following section summarizes findings from ACS data on disability prevalence in Louisville, KY, highlighting how factors like race, sex, income, and age relate to disability rates.
 
@@ -728,7 +729,7 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
 
 ## Own vs. Rent {.tabset}
 
-### Individual 
+### Individual
 
 ```{r homeownership_individual_graph}
 load("interim_data/homeownership_all_dis.RData")
@@ -819,7 +820,6 @@ hh_own_rent <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill 
 
 ```
 
-
 ## Income (Household level)
 
 ```{r income_chart}
@@ -906,6 +906,7 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
 ## Disability Trends Over Time (2008-2023)
 
 ## Overall
+
 ```{r overtime_overall}
 load("interim_data/clean_disability_data.RData")
 
@@ -1147,7 +1148,7 @@ ggsave("interim_data/plots/dis_physical_by_age_time.png", plot = plot_age_time)
 print(plot_age_time)
 ```
 
-# Kentucky Housing Corporation (KHC) Data
+# Kentucky Housing Corporation (KHC)
 
 Below is a graph showing the number of accessible units in various housing developments provided by KHC. The total number of housing units in the data set was 35,862, making the largest category of accessible units (all categories combined) about 3.59% of units. *Note: The differences in unit features based on categories ADA compliant, Physical Disabilities, and Special Needs have not yet been defined.*
 
