@@ -274,12 +274,14 @@ individual_dis_income <- survey_by_demog(disability_data,
                                          "PERWT", 
                                          other_grouping_vars = "income_group")
 
+
 individual_dis_homeownership <- survey_by_demog(disability_data, 
                                                 "dis_physical", 
                                                 "PERWT", 
                                                 other_grouping_vars = "homeownership")
 
 dis_vars <- c("dis_physical", "dis_independent", "dis_selfcare", "dis_vision", "dis_hearing")
+
 
 income_and_hearing <- survey_by_demog(disability_data, 
                                          "dis_hearing", 
@@ -547,9 +549,11 @@ example_df %<>%
 
 The following section summarizes findings from ACS data on disability prevalence in Louisville, KY, highlighting how factors like race, sex, income, and age relate to disability rates.
 
-## Overall {.tabset}
+## Trends Across Demographics (2023)
 
-### Individual
+### Overall {.tabset}
+
+#### Individual
 
 ```{r prevalence_chart_indv}
 
@@ -600,7 +604,7 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   
 ```
 
-### Household
+#### Household
 
 ```{r prevalence_chart_HH}
 load(file = "interim_data/clean_disability_data.RData")
@@ -644,7 +648,7 @@ HH_prev_plot <- ggplot(HH_prev, aes(x = Disability_Type, y = Percent)) +
   ggsave("interim_data/plots/HH_prev_plot.png", plot= HH_prev_plot)
 ```
 
-## Sex
+### Sex
 
 ```{r sex_chart}
 
@@ -689,7 +693,7 @@ plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +
   
 ```
 
-## Race
+### Race
 
 ```{r race_chart}
 
@@ -735,9 +739,9 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
   print(plot3)
 ```
 
-## Own vs. Rent {.tabset}
+### Own vs. Rent {.tabset}
 
-### Individual
+#### Individual
 
 ```{r homeownership_individual_graph}
 load("interim_data/homeownership_all_dis.RData")
@@ -783,7 +787,7 @@ plot6 <- ggplot(dis_by_own, aes(x = Disability_Type, y = Percent, fill = Homeown
 
 ```
 
-### Household
+#### Household
 
 ```{r hh_homeownership_graph}
 
@@ -830,7 +834,7 @@ hh_own_rent <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill 
 
 ```
 
-## Income (Household level)
+### Income (Household level)
 
 ```{r income_chart}
 load("interim_data/income_6_all_dis.RData")
@@ -871,7 +875,7 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
   
 ```
 
-## Age
+### Age
 
 ```{r age_chart}
 # @H im guessing were going to need to tweak the age groups again bc over 80 group is just so much higher... but also maybe thats just the way it will be no matter how we slice her up 
@@ -913,9 +917,9 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
   print(plot5)
 ```
 
-## Disability Trends Over Time (2008-2023)
+## Trends Over Time (2008-2023)
 
-## Overall
+### Overall
 
 ```{r overtime_overall}
 load("interim_data/clean_disability_data.RData")
@@ -960,7 +964,7 @@ print(plot_overall_time)
 
 ```
 
-## Sex
+### Sex
 
 ```{r sex_chart_time}
 load(file = "interim_data/clean_disability_data.RData")
@@ -999,7 +1003,7 @@ ggsave("interim_data/plots/dis_physical_by_sex_time.png", plot = plot_sex_time)
 print(plot_sex_time)
 ```
 
-## Race
+### Race
 
 ```{r race_chart_time}
 load(file = "interim_data/clean_disability_data.RData")
@@ -1038,7 +1042,7 @@ ggsave("interim_data/plots/dis_physical_by_race_time.png", plot = plot_race_time
 print(plot_race_time)
 ```
 
-## Own Vs Rent
+### Own Vs Rent
 
 ```{r own_vs_rent_time}
 load(file = "interim_data/clean_disability_data.RData")
@@ -1076,7 +1080,7 @@ ggsave("interim_data/plots/dis_physical_by_owns_time.png", plot = plot_owns_time
 print(plot_owns_time)
 ```
 
-## Income
+### Income
 
 ```{r income_graph_time}
 load(file = "interim_data/clean_disability_data.RData")
@@ -1116,7 +1120,7 @@ ggsave("interim_data/plots/dis_physical_by_income_time.png", plot = plot_income_
 print(plot_income_time)
 ```
 
-## Age
+### Age
 
 ```{r age_graph_time}
 load(file = "interim_data/clean_disability_data.RData")
@@ -1206,7 +1210,7 @@ plot_summary <- ggplot(summary_df, aes(x = Category, y = Units)) +
   geom_text(
     aes(label = Units),
     vjust = -0.4,                 # position above bars
-    size = 3.5,                   # readable label size
+    size = 6,                   # readable label size
     fontface = "bold"
   ) +
   labs(
