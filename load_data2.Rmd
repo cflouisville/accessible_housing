@@ -3,6 +3,7 @@ title: "Accessible Housing"
 output:
   html_document:
     css: styles.css
+    accent: "#7bdcb5"
     self_contained: false
     toc: yes
     toc_float: yes
@@ -448,6 +449,46 @@ rm(hh_homeownership_dis_physical, hh_homeownership_dis_independent,
 save(hh_homeownership_all, file = "interim_data/hh_homeownership_all_dis.RData")
 ```
 
+
+```{r hh_income, eval=FALSE}
+disability_data <- arrow::read_feather("interim_data/disability_data.feather")
+
+disability_data_hh <- disability_data %>%
+  filter(PERNUM == 1)
+
+hh_income_dis_physical <- survey_by_demog(disability_data_hh, "dis_physical", "HHWT", 
+                                       other_grouping_vars = "income_group")
+hh_income_dis_independent <- survey_by_demog(disability_data_hh, "dis_independent", "HHWT",
+                                          other_grouping_vars = "income_group")
+hh_income_dis_selfcare <- survey_by_demog(disability_data_hh, "dis_selfcare","HHWT", 
+                                       other_grouping_vars = "income_group")
+hh_income_dis_vision <- survey_by_demog(disability_data_hh, "dis_vision","HHWT", 
+                                     other_grouping_vars = "income_group")
+hh_income_dis_hearing <- survey_by_demog(disability_data_hh, "dis_hearing", "HHWT", 
+                                      other_grouping_vars = "income_group")
+hh_income_dis_any <- survey_by_demog(disability_data_hh, "dis_any", "HHWT",  
+                                  other_grouping_vars = "income_group")
+
+hh_income_all <- hh_income_dis_physical %>%
+  left_join(hh_income_dis_independent, by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(hh_income_dis_selfcare, by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(hh_income_dis_vision, by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(hh_income_dis_hearing, by = c("FIPS","year","sex","race","var_type","income_group")) %>%
+  left_join(hh_income_dis_any, by = c("FIPS","year","sex","race","var_type","income_group"))
+
+#clean
+rm(hh_income_dis_physical, hh_income_dis_independent, 
+   hh_income_dis_selfcare, hh_income_dis_vision, 
+   hh_income_dis_hearing, hh_income_dis_any)
+
+income_levels <- c("Under 20k", "20k–49.9k","50k–74.9k", "75k–99.9k", "100k–149.9k", "150k+")
+
+hh_income_all <- hh_income_all %>%
+  mutate(income_group = factor(income_group, levels = income_levels))
+
+save(hh_income_all, file = "interim_data/hh_income_all_dis.RData")
+```
+
 ```{r create_age_table, eval = FALSE}
 
 #make big table 
@@ -834,7 +875,9 @@ hh_own_rent <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill 
 
 ```
 
-### Income (Household level)
+### Income {.tabset}
+
+#### Individual
 
 ```{r income_chart}
 load("interim_data/income_6_all_dis.RData")
@@ -874,6 +917,52 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
   print(plot4)
   
 ```
+
+#### Household
+
+```{r hh_income_graph}
+
+showtext_auto()
+load("interim_data/hh_income_all_dis.RData")
+colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
+
+#clean it
+hh_dis_by_own <- hh_income_all %>%
+  filter(year == 2023, var_type == "percent", sex == "total", race == "total", !is.na(income_group)) %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(income_group, Disability_Type,Percent) %>%
+  mutate(
+    Disability_Type = recode(Disability_Type,
+                             dis_physical = "Physical",
+                             dis_independent = "Ind. Living",
+                             dis_selfcare = "Self-Care",
+                             dis_vision = "Vision",
+                             dis_hearing = "Hearing",
+                             dis_any = "Any")) %>%
+  rename("Income Group" = income_group)
+
+#chart it!
+hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = `Income Group`)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Income (2023)",
+    subtitle = "Household Level", 
+    x = NULL, y = "Percent of Households"
+  ) +
+  scale_fill_manual(values = colors) +  
+ theme_minimal(base_family = "Montserrat", base_size = 22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat")
+  )
+
+  ggsave("interim_data/plots/hh_dis_by_income.png", plot= hh_income)
+  print(hh_income)
+
+```
+
 
 ### Age
 
