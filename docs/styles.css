@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
 
+:root {
+  --accent-color: #7bdcb5;
+  --accent-color-darker: #52b899;
+}
+
 .montserrat-header {
   font-family: "Montserrat", sans-serif;
   font-optical-sizing: auto;
@@ -15,4 +20,20 @@ body {
 code, pre {
   font-family: "Courier New", monospace;
   font-weight: 400;
+}
+
+.list-group-item.active,
+.tocify-item.active {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #fff !important; 
+}
+
+a {
+    color:var(--accent-color);
+    text-decoration: none;
+}
+
+a:hover {
+  color:var(--accent-color-darker);
 }
