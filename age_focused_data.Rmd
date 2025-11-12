@@ -80,9 +80,7 @@ disability_data_age %<>%
       HHINCOME >= 75000 & HHINCOME < 100000 ~ "75k–99.9k",
       HHINCOME >= 100000 & HHINCOME < 150000 ~ "100k–149.9k",
       HHINCOME >= 150000 ~ "150k+",
-      TRUE ~ NA_character_  ),  # catch-all for missing/unspecified values, "TRUE" could also be "is.na(HHICOME)"
-  
-  # Homeownership- Not sure if we'll use them all. Rent vs. own for sure, unsure about others.
+      TRUE ~ NA_character_  ), 
   
     OWNCOST  = replace(OWNCOST, OWNCOST == 99999, NA),
     OWNERSHP = replace(OWNERSHP, OWNERSHP == 0, NA),
@@ -100,22 +98,10 @@ disability_data_age %<>%
       !homeownership & !cost_burden ~ "noncb_renter",
       !homeownership & cost_burden  ~ "cb_renter",
       TRUE ~ NA_character_)
-    
     )
 
-# MB Checking the disability variable recode. The colon selects several columns. Nifty!
-# disability_data[1:100,] %>% select(dis_physical:dis_any)
-
-
-## HOUSEHOLD
-# @Morgan this makes a variable that flags whether anyone in the household (HH) has a disability!!
-
 disability_data_age %<>%
-  
-  #@MB HHs are identified by unique values of SERIAL. (SERIAL is repeated across years, hence the need to group by year as well)
   group_by(year, SERIAL) %>% 
-  
-  #@MB back to vectorized! The verb any is looking up and down the small subset of observations we have created for each HH via group_by to see if dis_physical is true in any of the rows. This type of operation usually takes way longer than simple row-wise operations, so this code is suuuuuper slow.
   
   mutate(
     any_dis_physical    = if_else(any(dis_physical), T, F), 
@@ -123,15 +109,9 @@ disability_data_age %<>%
     any_dis_selfcare    = if_else(any(dis_selfcare), T, F),
     any_dis_vision      = if_else(any(dis_vision), T, F),
     any_dis_hearing     = if_else(any(dis_hearing), T, F),
-    any_dis_any         = if_else(any(dis_any), T, F)) %>% #@MB lol at this naming convention :)
+    any_dis_any         = if_else(any(dis_any), T, F)) %>% 
   ungroup() 
 
-#@MB saving 
-arrow::write_feather(disability_data_age, "interim_data/disability_data_age.feather")
-
-```
-
-```{r create_age_table, eval = FALSE}
 individual_dis_age_4 <- survey_by_demog(disability_data_age, 
                                         "dis_physical", 
                                         "PERWT", 
