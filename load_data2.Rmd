@@ -967,8 +967,6 @@ hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = 
 ### Age
 
 ```{r age_chart}
-# @H im guessing were going to need to tweak the age groups again bc over 80 group is just so much higher... but also maybe thats just the way it will be no matter how we slice her up 
-
 load(file = "interim_data/age_4_all_dis.RData")
 showtext_auto()
 colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
@@ -1007,6 +1005,7 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
 ```
 
 ## Trends Over Time (2008-2023)
+*Note missing data for the year 2020*
 
 ### Overall
 
