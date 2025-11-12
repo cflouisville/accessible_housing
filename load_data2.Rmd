@@ -449,7 +449,6 @@ rm(hh_homeownership_dis_physical, hh_homeownership_dis_independent,
 save(hh_homeownership_all, file = "interim_data/hh_homeownership_all_dis.RData")
 ```
 
-
 ```{r hh_income, eval=FALSE}
 disability_data <- arrow::read_feather("interim_data/disability_data.feather")
 
@@ -963,8 +962,9 @@ hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = 
 
 ```
 
+### Age {.tabset}
 
-### Age
+#### All Ages
 
 ```{r age_chart}
 load(file = "interim_data/age_4_all_dis.RData")
@@ -1004,7 +1004,47 @@ plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +
   print(plot5)
 ```
 
+#### Older Subset
+
+```{r age_5yr_chart}
+load(file = "interim_data/age_5yr_all_dis.RData")
+showtext_auto()
+colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(8)
+
+#clean table
+dis_by_age <- age_all_5yr %>%
+  filter(year == 2023, sex == "total", race == "total", var_type == "percent",!is.na(age_group_5yr)) %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_any),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>% 
+  mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_any = "Any")) %>%
+  select(age_group_5yr, Disability_Type, Percent) %>% 
+  rename(Age = age_group_5yr)
+
+plot5yr <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Age- 50+ (2023)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = colors) +  
+ theme_minimal(base_family = "Montserrat", base_size = 22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat")
+  )
+
+  ggsave("interim_data/plots/dis_by_age_5yr.png", plot= plot5yr)
+  print(plot5yr)
+```
+
 ## Trends Over Time (2008-2023)
+
 *Note missing data for the year 2020*
 
 ### Overall
