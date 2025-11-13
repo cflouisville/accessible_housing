@@ -1096,9 +1096,54 @@ dis_prev_by_type_over_time <- individual_dis %>%
                                   dis_any = "Any")) %>%
   select(year, Disability_Type, Percent)
 
+library(ggrepel)
+#for adding labels
+
+grid_lines_y <- tibble(
+  y = seq(0, max(dis_prev_by_type_over_time$Percent), by = 2.5),
+  x1 = min(dis_prev_by_type_over_time$year),
+  x2 = 2023
+)
+
+last_points <- dis_prev_by_type_over_time %>%
+  group_by(Disability_Type) %>%
+  filter(year == max(year)) %>%
+  ungroup()
+
 plot_overall_time <- ggplot(dis_prev_by_type_over_time, aes(x = year, y = Percent, color = Disability_Type, group = Disability_Type)) +
+  geom_segment(
+    data = tibble(x = seq(min(dis_prev_by_type_over_time$year), 2023, by = 1),
+                  y1 = 0,
+                  y2 = max(dis_prev_by_type_over_time$Percent)),
+    aes(x = x, xend = x, y = y1, yend = y2),
+    inherit.aes = FALSE,
+    color = "grey91",
+    size = 0.4
+) + geom_segment(
+  data = tibble(x = seq(min(dis_prev_by_type_over_time$year), 2023, by = 2),
+                  y1 = 0,
+                  y2 = max(dis_prev_by_type_over_time$Percent)),
+    aes(x = x, xend = x, y = y1, yend = y2),
+    inherit.aes = FALSE,
+    color = "grey91",
+    size = 0.8
+) +
+  geom_segment(
+  data = filter(grid_lines_y, y %% 5 == 0),
+  aes(x = x1, xend = x2, y = y, yend = y),
+  inherit.aes = FALSE,
+  color = "grey91",
+  size = 0.8
+) +
+geom_segment(
+  data = filter(grid_lines_y, y %% 5 != 0),
+  aes(x = x1, xend = x2, y = y, yend = y),
+  inherit.aes = FALSE,
+  color = "grey91",
+  size = 0.4
+) +
   geom_line(size = 1.2) +                      
-  geom_point(size = 2) + #points on the year (optional)                      
+  geom_point(size = 2) + #points on the year (optional)              
   labs(
     title = "Disability Trends Over Time",
     x = NULL,
@@ -1106,13 +1151,32 @@ plot_overall_time <- ggplot(dis_prev_by_type_over_time, aes(x = year, y = Percen
   ) +
  theme_minimal(base_family = "Montserrat", base_size = 22) +
   scale_x_continuous(
-    breaks = seq(min(dis_prev_by_type_over_time$year), max(dis_prev_by_type_over_time$year), by = 2)  #every other year
+    breaks = seq(min(dis_prev_by_type_over_time$year),max(dis_prev_by_type_over_time$year), by = 2),  #every other year
+    limits = c(min(dis_prev_by_type_over_time$year), 2025)
   ) +
   scale_color_manual(values = c("Any" = all_color, "Ind. Living" = colors[1], "Self-Care" = colors[2], "Hearing" = colors[3], "Physical" = colors[4] , "Vision" = colors[5])) +
+  geom_text_repel(
+    data = last_points,
+    aes(label = Disability_Type),
+    nudge_x = 1.5, # push labels into white space
+    hjust = 0,
+    direction = "y",
+    family = "Montserrat",
+    fontface = "bold",
+    size = 10,
+    segment.size = 0.6,
+    segment.alpha = 0.5,
+    segment.linetype = "dotted",
+    box.padding = 0.4
+  ) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, family = "Montserrat"),
     plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
-    legend.position = "top"
+    legend.position = "none", 
+    panel.grid.major.y = element_blank(),  # remove horizontal grid
+    panel.grid.minor.y = element_blank(), 
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank()
   )
 
 ggsave("interim_data/plots/dis_prev_by_type_over_time.png", plot = plot_overall_time)
@@ -1293,7 +1357,6 @@ age_over_time<- individual_dis_age_4 %>%
   filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", !is.na(age_group_4), var_type == "percent") %>%
   select(year, age_group_4, dis_physical) %>%
   rename(Age = age_group_4)
-  
 
 plot_age_time <- ggplot(age_over_time, aes(x = year, y = dis_physical, color= Age, group = Age)) +
   geom_line(size = 1.2) +                      
@@ -1306,8 +1369,8 @@ plot_age_time <- ggplot(age_over_time, aes(x = year, y = dis_physical, color= Ag
   scale_color_manual(values = colors) +
  theme_minimal(base_family = "Montserrat", base_size = 22) +
   scale_x_continuous(
-    breaks = seq(min(age_over_time$year), max(age_over_time$year), by = 2)  #every other year
-  ) +
+    breaks = seq(min(age_over_time$year), max(age_over_time$year), by = 2),  #every other year
+    ) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, family = "Montserrat"),
     plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
