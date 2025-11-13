@@ -1052,7 +1052,8 @@ plot5yr <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age))
 ```{r overtime_overall}
 load("interim_data/clean_disability_data.RData")
 showtext_auto()
-colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
+colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(5)
+all_color <- "#52b899"
 
 dis_prev_by_type_over_time <- individual_dis %>%
   filter(var_type == "percent", sex == "total", race == "total") %>%
@@ -1079,7 +1080,7 @@ plot_overall_time <- ggplot(dis_prev_by_type_over_time, aes(x = year, y = Percen
   scale_x_continuous(
     breaks = seq(min(dis_prev_by_type_over_time$year), max(dis_prev_by_type_over_time$year), by = 2)  #every other year
   ) +
-  scale_color_manual(values = colors) +
+  scale_color_manual(values = c("Any" = all_color, "Ind. Living" = colors[1], "Self-Care" = colors[2], "Hearing" = colors[3], "Physical" = colors[4] , "Vision" = colors[5])) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, family = "Montserrat"),
     plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
