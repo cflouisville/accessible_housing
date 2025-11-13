@@ -589,6 +589,34 @@ example_df %<>%
 
 The following section summarizes findings from ACS data on disability prevalence in Louisville, KY, highlighting how factors like race, sex, income, and age relate to disability rates.
 
+<details>
+<summary> <i> See variable definitions </i> </summary> 
+```{r, echo=FALSE, eval=TRUE}
+library(knitr)
+library(kableExtra)
+defs <- data.frame(
+  Variable = c("Ambulatory difficulty",
+    "Independent living difficulty",
+    "Self-care difficulty",
+    "Vision difficulty",
+    "Hearing difficulty"),
+  Description = c("DIFFPHYS- Indicates whether the respondent has a condition that substantially limits one or more basic physical activities, such as walking, climbing stairs, reaching, lifting, or carrying.",
+                  "DIFFMOB- Indicates whether the respondent has any physical, mental, or emotional condition lasting six months or more that makes it difficult or impossible to perform basic activities outside the home alone. Does not include temporary health problems.",
+                  "DIFFCARE- Indicates whether respondents have any physical or mental health condition that has lasted at least six months and makes it difficult to take care of their own personal needs (bathing, dressing, getting around inside the home). Excludes temporary conditions.",
+                  "DIFFEYE- Indicates whether the respondent is blind or has serious difficulty seeing even with corrective lenses.",
+                  "DIFFHEAR- Indicates whether the respondent is deaf or has serious difficulty hearing."))
+
+#convert data frame to markdown table 
+kable(defs, "html", escape = FALSE, col.names = c("Variable", "Description")) %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center",
+    #alternate row colors, reduce padding, scroll if on mobile
+    bootstrap_options = c("striped", "condensed", "responsive")
+  )
+```
+</details>
+
 ## Trends Across Demographics (2023)
 
 ### Overall {.tabset}
