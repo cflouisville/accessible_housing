@@ -260,6 +260,15 @@ individual_dis_age_3 <- survey_by_demog(disability_data,
                                         "PERWT", 
                                         other_grouping_vars = "age_group_3")
 
+individual_dis_any_age_3 <- survey_by_demog(disability_data, 
+                                        "dis_any", 
+                                        "PERWT", 
+                                        other_grouping_vars = "age_group_3")
+
+individual_dis_age_4 <- survey_by_demog(disability_data, 
+                                        "dis_physical", 
+                                        "PERWT", 
+                                        other_grouping_vars = "age_group_4")
 individual_dis_age_4 <- survey_by_demog(disability_data, 
                                         "dis_physical", 
                                         "PERWT", 
