@@ -1295,7 +1295,7 @@ colors <- c("#f60", "#FFCCC2")
 
 #phys_disability and race over time
 homeownership_over_time<- individual_dis_homeownership %>%
-  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", !is.na(homeownership), var_type == "percent") %>%
+  filter(race == "total", sex == "total", !is.na(homeownership), var_type == "percent") %>%
   select(year, homeownership, dis_physical) %>%
   mutate(Homeownership = if_else(homeownership, "Owns", "Rents")
   ) %>%
@@ -1337,7 +1337,7 @@ individual_dis_income <- individual_dis_income %>%
 colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
 
 income_over_time<- individual_dis_income %>%
-  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", var_type == "percent") %>%
+  filter(race == "total", sex == "total", var_type == "percent") %>%
   select(year, income_group, dis_physical) %>%
   rename(Income = income_group)
 
@@ -1377,7 +1377,7 @@ individual_dis_age_4 <- individual_dis_age_4 %>%
   mutate(age_group_4 = factor(age_group_4, levels = age_levels, ordered = TRUE))
 
 age_over_time<- individual_dis_age_4 %>%
-  filter(year %in% c(2008, 2010, 2012, 2014, 2016, 2018, 2021, 2023), race == "total", sex == "total", !is.na(age_group_4), var_type == "percent") %>%
+  filter(race == "total", sex == "total", !is.na(age_group_4), var_type == "percent") %>%
   select(year, age_group_4, dis_physical) %>%
   rename(Age = age_group_4)
 
