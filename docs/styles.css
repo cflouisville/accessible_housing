@@ -40,7 +40,7 @@ a:hover {
 .age-projections-graph-65 {
   width: 700px;       
   height: 500px;      
-  background-image: url("../interim_data/plots/plot_projected_65_plus.png");
+  background-image: url("./plot_projected_65_plus.png");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
@@ -48,7 +48,7 @@ a:hover {
 .age-projections-graph-80 {
   width: 700px;       
   height: 500px;      
-  background-image: url("../interim_data/plots/plot_projected_80_plus.png");
+  background-image: url("./plot_projected_80_plus.png");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
