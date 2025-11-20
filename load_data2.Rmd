@@ -33,18 +33,13 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FA
 
 options(arrow.skip_nul = TRUE)
 
-#"C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather"
+# acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
 
+# disability_data <- acs_micro %>%
+#   filter(year >= 2008, FIPS == "21111")
+# 
+# save(disability_data, file = "interim_data/acs_micro_subset.RData")
 
-
-acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
-
-disability_data <- acs_micro %>%
-  filter(year >= 2008, FIPS == "21111")
-
-save(disability_data, file = "interim_data/acs_micro_subset.RData")
-
-=======
 acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_FIPS_repwts.feather")
 
 # base_example <- acs_micro[acs_micro$FIPS == "21111",]
@@ -290,6 +285,9 @@ individual_dis_homeownership <- survey_by_demog(disability_data,
                                                 "PERWT", 
                                                 other_grouping_vars = "homeownership")
 
+older_65   <- survey_by_demog(disability_data, "age_group_3",    "PERWT")
+save(older_65, file = "interim_data/over_65.RData")
+
 dis_vars <- c("dis_physical", "dis_independent", "dis_selfcare", "dis_vision", "dis_hearing")
 
 
@@ -393,12 +391,6 @@ income_all <- income_all %>%
   mutate(income_group = factor(income_group, levels = income_levels))
 
 save(income_all, file= "interim_data/income_6_all_dis.RData")
-```
-
-```{r}
-older_65   <- survey_by_demog(disability_data, "age_group_3",    "PERWT")
-save(older_65, file = "interim_data/over_65.RData")
-
 ```
 
 ```{r create_own_vs_rent_table, eval= FALSE}
@@ -1371,7 +1363,6 @@ load(file = "interim_data/clean_disability_data.RData")
 showtext_auto()
 
 colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
-
 age_levels <- c("Under 50", "50-64", "65-80", "80 or Older")
 individual_dis_age_4 <- individual_dis_age_4 %>%
   mutate(age_group_4 = factor(age_group_4, levels = age_levels, ordered = TRUE))
@@ -1532,3 +1523,9 @@ plot_summary <- ggplot(summary_df, aes(x = Category, y = Units)) +
 
 print(plot_summary)
 ```
+
+# Age Projections: Jefferson County
+
+<div class="age-projections-graph-65"></div>
+<div class="age-projections-graph-80"></div>
+
