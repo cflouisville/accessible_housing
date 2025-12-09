@@ -1,0 +1,46 @@
+---
+title: "ACS_units_in_structure"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(readxl)
+library(tidycensus)
+library(tidyverse)
+
+# load in data
+UIS_Year <- get_acs(
+  geography = "county",
+  state = "KY",
+  county = "Jefferson",
+  table = "B25127",
+  year = 2023,
+)
+
+# get var names
+vars_2023 <- load_variables(2023, "acs1", cache = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(readxl)
+library(tidycensus)
+library(tidyverse)
+library(janitor)
+
+# get relevant vars and clean
+UIS_metadata <- vars_2023[grep("^B25127", vars_2023$name), ] %>% # grep matches characters or sequences of characters in a string 
+  select(-concept) %>%
+  pivot_wider(names_from = label, values_from = name) %>% 
+  janitor::clean_names() %>%
+  pivot_longer(cols = everything())
+
+#replace codes with var names
+UIS_tenure_year_built <- UIS_Year %>%
+  left_join(UIS_metadata, by = c("variable" = "value")) %>%
+  mutate(variable = name) %>%
+  select(-name, -NAME) 
+
+save(UIS_tenure_year_built, file = "interim_data/UIS_tenure_year_built.RData")
+```
