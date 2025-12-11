@@ -1,0 +1,47 @@
+---
+title: "NHPD"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(dplyr)
+library(lubridate)
+
+NHPD_df <- read_excel("data/NHPD Properties Only Export.xlsx")
+
+# significant number of these units don't have construction start or end dates :( 
+# HUD sec. 504 passed in 1973
+#Note: target tenant type has some "elderly or disabled, disabled" -- does this mean all units (or more than 5% of units would be accessible??)
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+date_earliest_const_start <- as.Date(NHPD_df$`Earliest Construction Date`)
+
+NHPD_since_1973 <- NHPD_df %>%
+  #make target columns part of Date class
+  mutate(
+    `Earliest Construction Date` = as.Date(`Earliest Construction Date`),
+    `Latest Construction Date` = as.Date(`Latest Construction Date`)
+  ) %>%
+  # keep only listings from after 1973
+  # if earliest year == latest year AND year > 1973,  else if latest const. year > 1973
+  filter((
+    year(`Earliest Construction Date`) == year(`Latest Construction Date`) &
+      year(`Earliest Construction Date`) > 1973
+  ) |
+    year(`Latest Construction Date`) > 1973) %>%
+  # developments with more than 5 units
+  filter(`Total Units` > 5)
+
+
+total_units <- sum(NHPD_since_1973$`Total Units`)
+units_accessible <- total_units * .05
+units_accessible
+
+
+
+```
