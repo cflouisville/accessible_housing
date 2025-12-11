@@ -4,6 +4,10 @@ output: html_document
 ---
 
 ```{r}
+
+# https://up.codes/viewer/kentucky/icc-a117.1-2009
+#says ICC Type A regulations weren't adopted until 2019, meaning we could only use the built 2020 or later sections
+
 library(dplyr)
 library(readxl)
 library(tidycensus)
@@ -20,6 +24,9 @@ UIS_Year <- get_acs(
 
 # get var names
 vars_2023 <- load_variables(2023, "acs1", cache = TRUE)
+
+save(UIS_Year, file = "interim_data/UIS_2023.RData")
+save(vars_2023, file = "interim_data/vars_2023.RData")
 ```
 
 ```{r}
@@ -30,9 +37,9 @@ library(tidyverse)
 library(janitor)
 
 # get relevant vars and clean
-UIS_metadata <- vars_2023[grep("^B25127", vars_2023$name), ] %>% # grep matches characters or sequences of characters in a string 
+UIS_metadata <- vars_2023[grep("^B25127", vars_2023$name), ] %>% # grep matches characters or sequences of characters in a string
   select(-concept) %>%
-  pivot_wider(names_from = label, values_from = name) %>% 
+  pivot_wider(names_from = label, values_from = name) %>%
   janitor::clean_names() %>%
   pivot_longer(cols = everything())
 
@@ -40,7 +47,22 @@ UIS_metadata <- vars_2023[grep("^B25127", vars_2023$name), ] %>% # grep matches 
 UIS_tenure_year_built <- UIS_Year %>%
   left_join(UIS_metadata, by = c("variable" = "value")) %>%
   mutate(variable = name) %>%
-  select(-name, -NAME) 
+  select(-name, -NAME)
 
 save(UIS_tenure_year_built, file = "interim_data/UIS_tenure_year_built.RData")
+```
+
+```{r}
+library(stringr)
+
+# number of accessible according to 2009 ICC A117.1 Accessible and Usable Buildings and Facilities requirements
+accessible_ACS <- UIS_tenure_year_built %>%
+  #developments built after 2019 with min 20 units
+  filter(
+    str_detect(variable, "built_2020_or_later_(20_to_49|50_or_more)$")
+  )
+
+all_units <- sum(accessible_ACS$estimate)
+accessible_units <- all_units * .02
+accessible_units
 ```
