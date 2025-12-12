@@ -41,7 +41,71 @@ NHPD_since_1973 <- NHPD_df %>%
 total_units <- sum(NHPD_since_1973$`Total Units`)
 units_accessible <- total_units * .05
 units_accessible
+```
 
+```{r}
+library(readxl)
+library(stringr)
+#intersect size 86
+#compare NHPD and KHC development addresses 
 
+KHC <- read_excel("data/KHC Project Listings by Unit Category.xlsx")
+NHPD <- read_excel("data/NHPD Properties Only Export.xlsx")
+
+KHC$address_new <- KHC$Address %>%
+  #remove zip
+  str_replace("\\s\\d{5}$", "") %>%
+  str_replace("Louisville", "") %>%
+  str_replace("Jeffersontown", "") %>%
+  str_to_lower() %>%
+  str_replace_all("\\b(north|south|east|west|e|w|n|s)\\b\\.?", "") %>%
+  str_replace_all("\\b(lane|hwy|way|road|avenue|ave|ct|pacel|court|street|dr|drive|circle|blvd|rd|ln|st|plaza|parkway)\\b\\.?", "") %>%
+  str_squish() %>%
+  str_trim()
+
+NHPD$address_new <- NHPD$`Property Address` %>%
+  str_to_lower() %>%
+  str_replace_all("\\b[ewns]\\b", "") %>%
+  str_replace_all("\\b(ln|hwy|way|ave|pl|ct|rd|st|cir|dr|plz|pkwy)\\b", "") %>%
+  str_squish() %>%
+  str_trim()
+
+NHPD_addresses <- unique(NHPD$address_new)
+KHC_addresses <- unique(KHC$address_new)
+
+khc_not_in_nhpd <- setdiff(KHC_addresses, NHPD_addresses)
+khc_in_nhpd <- intersect(KHC_addresses, NHPD_addresses) 
+
+head(khc_not_in_nhpd)
+
+# #"1405 broadway"
+# "1162 hopeful" and "1164 hopeful"
+# "3421 illinois" and "3434 illinois" 
+# "4516, 4518, 4524, 4526, 4528 cane run" vs "4517 cane run rd"
+# "lambourne blvd" vs "9643 lamborne blvd" 
+# "muhammad ali blvd" 
+# "greenwood & beech aves" vs "greenwood, hale & kentucky"
 
 ```
+
+```{r}
+#compare by property name 
+#intersect size 135
+
+KHC$property_name_new <- KHC$`Development Name` %>%
+  str_to_lower() %>%
+  str_trim
+
+NHPD$propert_name_new <- NHPD$`Property Name` %>%
+  str_to_lower() %>%
+  str_trim()
+
+NHPD_properties <- unique(NHPD$propert_name_new)
+KHC_properties <- unique(KHC$property_name_new)
+
+khc_p_not_in_nhpd <- setdiff(KHC_properties, NHPD_properties)
+khc_p_in_nhpd <- intersect(KHC_properties, NHPD_properties) 
+
+```
+
+
