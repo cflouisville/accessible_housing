@@ -1,0 +1,80 @@
+---
+title: "projections"
+output: html_document
+---
+###2019 AHS Variables Measuring Accessibility: 
+NOSTEP - Flag indicating unit's entrance is accessible without climbing up or down any stairs
+UNITFLOORS - Number of floors within the unit
+HABATHENTRY- Flag indicating bathroom on the entry level (when there's more than 1 floor)
+HABEDENTRY - Flag indicating bedroom on the entry level (when there's more than 1 floor)
+HALIFT- Flag indicating home has a chairlift, stairlift, or platform lift
+HARAMP- Flag indicating home has a ramp
+
+```{r load_AHS}
+library(glptools)
+glp_load_packages(T)
+
+AHS_2019_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/data/ahs2019n.csv")
+```
+
+```{r}
+
+accessible_features <- AHS_2019_micro %>%
+  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT) %>%
+  mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
+  mutate(
+    # Ambulatory difficulty
+    no_step = case_when(
+      NOSTEP == 9 ~ NA, 
+      NOSTEP == 1 ~ T,
+      NOSTEP == 2 ~ F),
+    
+    entry_bath = case_when(
+      HABATHENTRY == 9 ~ NA, 
+      HABATHENTRY == 1 ~ T,
+      HABATHENTRY == 2 ~ F, 
+      HABATHENTRY == 6 ~ T # single floor unit 
+      ), 
+    
+    entry_bed = case_when(
+      HABEDENTRY == 9 ~ NA, 
+      HABEDENTRY == 1 ~ T,
+      HABEDENTRY == 2 ~ F, 
+      HABEDENTRY == 6 ~ T # single floor unit 
+      ), 
+    
+    lift = case_when(
+      HALIFT == 9 ~ NA, 
+      HALIFT == 1 ~ T,
+      HALIFT == 2 ~ F, 
+      HALIFT == 6 ~ T # single floor unit or not applicable  
+      ), 
+    
+    ramp = case_when(
+      HARAMP == 9 ~ NA, 
+      HARAMP == 1 ~ T,
+      HARAMP == 2 ~ F, 
+      HARAMP == 6 ~ T # single floor unit or not applicable  
+      ), 
+    
+    floors = case_when(
+      UNITFLOORS == 1 ~ "1",
+      UNITFLOORS == 2 ~ "2",
+      UNITFLOORS == 3 ~ "3 or more"
+    )
+    )
+
+save(accessible_features, file = "interim_data/accessible_features_hh.RData")
+
+accessibility_summary <- accessible_features %>%
+  summarize(
+    no_step_pct = weighted.mean(no_step, WEIGHT, na.rm = TRUE) * 100,
+    entry_bath_pct = weighted.mean(entry_bath, WEIGHT, na.rm = TRUE) * 100,
+    entry_bed_pct = weighted.mean(entry_bed, WEIGHT, na.rm = TRUE) * 100,
+    lift_pct = weighted.mean(lift, WEIGHT, na.rm = TRUE) * 100,
+    ramp_pct = weighted.mean(ramp, WEIGHT, na.rm = TRUE) * 100
+  )
+
+# TODO calculate accessibility feature combinations
+    
+```
