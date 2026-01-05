@@ -122,10 +122,13 @@ jeff_co_HU <- jeff_co_HU %>%
 
 ```{r project!}
 jeff_acc_housing_est <- jeff_co_HU %>%
-  crossing(accessibility_summary) %>%     # cartesian join: every year × every metric
+  filter(year == "x2024") %>% #most recent estimates
+  crossing(accessibility_summary) %>%     # Cartesian join: every year × every metric
   mutate(
     #round down to nearest whole num
     estimated_units = floor(total_units * (percent / 100))
   ) 
+
+save(jeff_acc_housing_est, file = "interim_data/accessible_housing_estimates.RData")
 
 ```
