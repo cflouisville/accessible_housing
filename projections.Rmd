@@ -20,6 +20,11 @@ AHS_2019_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation o
 
 ```{r clean_filter_AHS}
 
+# 1: Yes
+# 2: No
+# M or -9: Not reported
+# N or -6: Not applicable
+
 accessible_features <- AHS_2019_micro %>%
   select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT) %>%
   mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
@@ -79,19 +84,14 @@ accessibility_summary <- accessible_features %>%
     
     #basic accessibility
     core_accessibility_pct = weighted.mean(
-    no_step == 1 &
-    entry_bath == 1 &
-    entry_bed == 1,
+    no_step == 1 & entry_bath == 1 & entry_bed == 1,
     WEIGHT,
     na.rm = TRUE
   ) * 100,
 
   # basic features plus ramp OR lift
   core_plus_ramp_lift_pct = weighted.mean(
-    no_step == 1 &
-    entry_bath == 1 &
-    entry_bed == 1 &
-    (ramp == 1 | lift == 1),
+    no_step == 1 & entry_bath == 1 & entry_bed == 1 & (ramp == 1 | lift == 1),
     WEIGHT,
     na.rm = TRUE
   ) * 100
