@@ -9,6 +9,33 @@ HABATHENTRY- Flag indicating bathroom on the entry level (when there's more than
 HABEDENTRY - Flag indicating bedroom on the entry level (when there's more than 1 floor)
 HALIFT- Flag indicating home has a chairlift, stairlift, or platform lift
 HARAMP- Flag indicating home has a ramp
+BLD - Type of housing unit
+<!-- Response Codes (BLD) -->
+<!-- 01: Mobile home or trailer -->
+<!-- 02: One-family house, detached -->
+<!-- 03: One-family house, attached -->
+<!-- 04: 2 apartments -->
+<!-- 05: 3 to 4 apartments -->
+<!-- 06: 5 to 9 apartments -->
+<!-- 07: 10 to 19 apartments -->
+<!-- 08: 20 to 49 apartments -->
+<!-- 09: 50 or more apartments -->
+<!-- 10: Boat, RV, van, etc. -->
+YRBUILT <- Year unit was built
+<!-- Response Codes -->
+<!-- 2010 : YYYY: 2010 to YYYY -->
+<!-- 2000: 2000 to 2009 -->
+<!-- 1990: 1990 to 1999 -->
+<!-- 1980: 1980 to 1989 -->
+<!-- 1970: 1970 to 1979 -->
+<!-- 1960: 1960 to 1969 -->
+<!-- 1950: 1950 to 1959 -->
+<!-- 1940: 1940 to 1949 -->
+<!-- 1930: 1930 to 1939 -->
+<!-- 1920: 1920 to 1929 -->
+<!-- 1919: 1919 or earlier -->
+MARKETVAL <- Current market value of unit
+
 
 ```{r load_AHS}
 
@@ -26,7 +53,7 @@ AHS_2019_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation o
 # N or -6: Not applicable
 
 accessible_features <- AHS_2019_micro %>%
-  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT) %>%
+  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL) %>%
   mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
   mutate(
     no_step = case_when(
@@ -66,14 +93,37 @@ accessible_features <- AHS_2019_micro %>%
       UNITFLOORS == 1 ~ "1",
       UNITFLOORS == 2 ~ "2",
       UNITFLOORS == 3 ~ "3 or more"
-    )
-    )
-
+    ),
+    
+    SF = BLD %in% c(1, 2, 3), 
+    MF = BLD %in% 4:9,
+    
+    yr_built = case_when(
+      YRBUILT <= 1940 ~ "built_1939_or_earlier" , 
+      YRBUILT %in% 1940:1950 ~ "built_1940_to_1959", 
+      YRBUILT %in% 1960:1970 ~ "built_1960_to_1979", 
+      YRBUILT %in% 1980:1990 ~ "built_1980_to_1999", 
+      YRBUILT <= 2000 ~ "built after 2000"
+    ), 
+    
+    market_val = case_when( 
+      MARKETVAL >= 9000000  ~ "more_than_10M", 
+      MARKETVAL %in% 5000000:9000000 ~ "between_5_and_9M", 
+      MARKETVAL %in% 1000000:4999999 ~ "between_1_and_5M", 
+      MARKETVAL %in% 750000:999999 ~ "between_750k_and_1M", 
+      MARKETVAL %in% 500000:749999 ~ "between_500k_and_750k",
+      MARKETVAL %in% 300000:499999 ~ "between_300k_and_500k",
+      MARKETVAL %in% 200000:299999 ~ "between_200k_and_300k",
+      MARKETVAL %in% 100000:199999 ~ "between_100k_and_200k",
+      MARKETVAL <= 99999 ~ "less than 100k"
+      )
+)
 save(accessible_features, file = "interim_data/accessible_features_hh.RData")
 ```
 
 ```{r accessibility_summary}
-accessibility_summary <- accessible_features %>%
+accessibility_summary_SF <- accessible_features %>%
+  filter(SF) %>%
   #all individual features
   summarize(
     no_step_pct = weighted.mean(no_step, WEIGHT, na.rm = TRUE) * 100,
@@ -81,6 +131,12 @@ accessibility_summary <- accessible_features %>%
     entry_bed_pct = weighted.mean(entry_bed, WEIGHT, na.rm = TRUE) * 100,
     lift_pct = weighted.mean(lift, WEIGHT, na.rm = TRUE) * 100,
     ramp_pct = weighted.mean(ramp, WEIGHT, na.rm = TRUE) * 100, 
+  
+    bed_bath_entry = weighted.mean(
+      entry_bath == 1 & entry_bed == 1,
+      WEIGHT, 
+      na.rm = TRUE
+    ) * 100, 
     
     #basic accessibility
     core_accessibility_pct = weighted.mean(
@@ -97,10 +153,126 @@ accessibility_summary <- accessible_features %>%
   ) * 100
   )
 
-accessibility_summary <- accessibility_summary %>%
+accessibility_summary_SF <- accessibility_summary_SF %>%
   pivot_longer(everything(), names_to = "feature", values_to = "percent")
   
-save(accessibility_summary, file = "interim_data/accessibility_summary.RData")
+save(accessibility_summary_SF, file = "interim_data/accessibility_summary_SF.RData")
+```
+
+```{r}
+accessibility_summary_MF <- accessible_features %>%
+  filter(MF) %>%
+  #all individual features
+  summarize(
+    no_step_pct = weighted.mean(no_step, WEIGHT, na.rm = TRUE) * 100,
+    entry_bath_pct = weighted.mean(entry_bath, WEIGHT, na.rm = TRUE) * 100,
+    entry_bed_pct = weighted.mean(entry_bed, WEIGHT, na.rm = TRUE) * 100,
+    lift_pct = weighted.mean(lift, WEIGHT, na.rm = TRUE) * 100,
+    ramp_pct = weighted.mean(ramp, WEIGHT, na.rm = TRUE) * 100, 
+  
+    bed_bath_entry = weighted.mean(
+      entry_bath == 1 & entry_bed == 1,
+      WEIGHT, 
+      na.rm = TRUE
+    ) * 100, 
+    
+    #basic accessibility
+    core_accessibility_pct = weighted.mean(
+    no_step == 1 & entry_bath == 1 & entry_bed == 1,
+    WEIGHT,
+    na.rm = TRUE
+  ) * 100,
+
+  # basic features plus ramp OR lift
+  core_plus_ramp_lift_pct = weighted.mean(
+    no_step == 1 & entry_bath == 1 & entry_bed == 1 & (ramp == 1 | lift == 1),
+    WEIGHT,
+    na.rm = TRUE
+  ) * 100
+  )
+
+accessibility_summary_MF <- accessibility_summary_MF %>%
+  pivot_longer(everything(), names_to = "feature", values_to = "percent")
+  
+save(accessibility_summary_MF, file = "interim_data/accessibility_summary_MF.RData")
+
+```
+
+```{r summary_by_year_built}
+
+accessibility_by_yr_built <- accessible_features %>%
+  select(no_step:ramp, yr_built, WEIGHT) %>%
+  filter(!is.na(yr_built))%>%
+  group_by(yr_built) %>%
+  summarise(
+    pct_no_step = weighted.mean(no_step, WEIGHT, na.rm = TRUE),
+    pct_entry_bath = weighted.mean(entry_bath, WEIGHT, na.rm = TRUE),
+    pct_entry_bed = weighted.mean(entry_bed, WEIGHT, na.rm = TRUE),
+    pct_lift = weighted.mean(lift, WEIGHT, na.rm = TRUE),
+    pct_ramp = weighted.mean(ramp, WEIGHT, na.rm = TRUE), 
+    
+    bed_bath_entry = weighted.mean(
+      entry_bath == 1 & entry_bed == 1,
+      WEIGHT, 
+      na.rm = TRUE
+    ) * 100, 
+    
+    #basic accessibility
+    core_accessibility_pct = weighted.mean(
+    no_step == 1 & entry_bath == 1 & entry_bed == 1,
+    WEIGHT,
+    na.rm = TRUE
+  ) * 100,
+
+  # basic features plus ramp OR lift
+  core_plus_ramp_lift_pct = weighted.mean(
+    no_step == 1 & entry_bath == 1 & entry_bed == 1 & (ramp == 1 | lift == 1),
+    WEIGHT,
+    na.rm = TRUE
+  ) * 100
+  ) %>%
+  ungroup() %>%
+  #order
+  mutate(yr_built = yr_built <- factor(c("built after 2000", "built_1980_to_1999", "built_1960_to_1979", "built_1940_to_1959", "built_1939_or_earlier")))
+```
+
+```{r summary_by_property_value}
+
+accessibility_by_property_val <- accessible_features %>%
+  select(no_step:ramp, market_val, WEIGHT) %>%
+  filter(!is.na(market_val)) %>%
+  group_by(market_val) %>%
+  summarise(pct_no_step = weighted.mean(no_step, WEIGHT, na.rm = TRUE),
+    pct_entry_bath = weighted.mean(entry_bath, WEIGHT, na.rm = TRUE),
+    pct_entry_bed = weighted.mean(entry_bed, WEIGHT, na.rm = TRUE),
+    pct_lift = weighted.mean(lift, WEIGHT, na.rm = TRUE),
+    pct_ramp = weighted.mean(ramp, WEIGHT, na.rm = TRUE), 
+    
+    bed_bath_entry = weighted.mean(
+      entry_bath == 1 & entry_bed == 1,
+      WEIGHT, 
+      na.rm = TRUE
+    ) * 100, 
+    
+    #basic accessibility
+    core_accessibility_pct = weighted.mean(
+    no_step == 1 & entry_bath == 1 & entry_bed == 1,
+    WEIGHT,
+    na.rm = TRUE
+  ) * 100,
+
+  # basic features plus ramp OR lift
+  core_plus_ramp_lift_pct = weighted.mean(
+    no_step == 1 & entry_bath == 1 & entry_bed == 1 & (ramp == 1 | lift == 1),
+    WEIGHT,
+    na.rm = TRUE
+  ) * 100
+  ) %>%
+  ungroup()%>%
+  mutate(market_val = market_val <- factor(c("more_than_10M", "between_5_and_9M", "between_1_and_5M", "between_750k_and_1M", "between_500k_and_750k", "between_300k_and_500k", "between_200k_and_300k", "between_100k_and_200k", "less than 100k")))
+  
+  
+
 ```
 
 ```{r ACS_housing_estimates}
@@ -123,12 +295,11 @@ jeff_co_HU <- jeff_co_HU %>%
 ```{r project!}
 jeff_acc_housing_est <- jeff_co_HU %>%
   filter(year == "x2024") %>% #most recent estimates
-  crossing(accessibility_summary) %>%     # Cartesian join: every year × every metric
+  crossing(accessibility_summary) %>%     #every year × every metric
   mutate(
     #round down to nearest whole num
     estimated_units = floor(total_units * (percent / 100))
   ) 
 
 save(jeff_acc_housing_est, file = "interim_data/accessible_housing_estimates.RData")
-
 ```
