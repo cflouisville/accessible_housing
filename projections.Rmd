@@ -36,7 +36,9 @@ YRBUILT <- Year unit was built
 <!-- 1919: 1919 or earlier -->
 MARKETVAL <- Current market value of unit
 
-```{r}
+```{r functions}
+
+#initialize funcs used throughout 
 w_pct <- function(x, w) {
   weighted.mean(x, w, na.rm = TRUE) * 100
 }
@@ -52,12 +54,9 @@ summarize_accessibility <- function(df) {
       
       bed_bath_entry_pct = w_pct(entry_bath == 1 & entry_bed == 1, WEIGHT),
       
-      core_accessibility_pct = w_pct(no_step == 1 &
-                                       entry_bath == 1 & entry_bed == 1, WEIGHT),
-      
-      core_plus_ramp_lift_pct = w_pct(
-        no_step == 1 &
-          entry_bath == 1 & entry_bed == 1 & (ramp == 1 | lift == 1),
+      core_accessibility_pct = w_pct(
+        no_step == 1 & entry_bath == 1 & entry_bed == 1 |
+        entry_bed == 1 & entry_bath == 1 & lift == 1,
         WEIGHT
       )
     )
@@ -66,7 +65,6 @@ summarize_accessibility <- function(df) {
 ```
 
 ```{r load_AHS}
-
 library(glptools)
 glp_load_packages(T)
 
@@ -81,7 +79,7 @@ AHS_2019_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation o
 # N or -6: Not applicable
 
 accessible_features <- AHS_2019_micro %>%
-  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL) %>%
+  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL, HASUPP, WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER) %>%
   mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
   mutate(
     no_step = case_when(
@@ -144,10 +142,16 @@ accessible_features <- AHS_2019_micro %>%
       MARKETVAL %in% 200000:299999 ~ "between_200k_and_300k",
       MARKETVAL %in% 100000:199999 ~ "between_100k_and_200k",
       MARKETVAL <= 99999 ~ "less than 100k"
-      )
+      ), 
+    
+    HASUPP = case_when(
+      HASUPP == -6 ~ NA, 
+      HASUPP == -9 ~ NA, 
+      HASUPP %in% c(1,2,3,4,5) ~ HASUPP
+    )
 )
 save(accessible_features, file = "interim_data/accessible_features_hh.RData")
-rm(AHS_2019_micro)
+#rm(AHS_2019_micro)
 ```
 
 ```{r accessibility_summary}
@@ -223,7 +227,7 @@ jeff_co_estimates_by_yr <- jeff_co_estimates_by_yr%>%
 
 accessibility_by_yr_built_projections <- jeff_co_estimates_by_yr %>%
   left_join(accessibility_by_yr_built, by = "yr_built") %>%
-  pivot_longer(no_step_pct:core_plus_ramp_lift_pct, names_to = "acc_measure", values_to = "percent") %>%
+  pivot_longer(no_step_pct:core_accessibility_pct, names_to = "acc_measure", values_to = "percent") %>%
   mutate(
     estimated_units = floor(units * percent / 100)
 )
@@ -231,8 +235,8 @@ rm(jeff_co_estimates_by_yr, accessibility_by_yr_built)
 ```
 
 ```{r summary_by_property_value}
-# no available property val var in ACS to project estimated units with 
 
+# no available property val var in ACS to project estimated units with 
 accessibility_by_property_val <- accessible_features %>%
   select(no_step:ramp, market_val, WEIGHT, SF) %>%
   filter(!is.na(market_val), SF) %>%
@@ -242,21 +246,128 @@ accessibility_by_property_val <- accessible_features %>%
   mutate(market_val = market_val <- factor(c("more_than_10M", "between_5_and_9M", "between_1_and_5M", "between_750k_and_1M", "between_500k_and_750k", "between_300k_and_500k", "between_200k_and_300k", "between_100k_and_200k", "less than 100k")))
 ```
 
+```{r mobility_device}
+
+#create flag for person who uses mobility device
+accessible_features %<>%
+  mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
+    ~ case_when(.x %in% c(-6, -9) ~ NA, TRUE ~ .x)
+  )) %>%
+  mutate(any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1)
+
+#calculate % ppl who use mobility device 
+mob_dev_pct <- accessible_features %>%
+  filter(!is.na(any_mob_dev)) %>%
+  summarize(percent_mob_dev = w_pct(any_mob_dev, WEIGHT))
+
+#Electric Wheelchair vs Manual
+wchair_pct <- accessible_features %>%
+  filter(!is.na(WCHAIR)) %>%
+  summarise(wchair_pct = w_pct(WCHAIR == 1, WEIGHT)) # = 1.60573 %
+
+echair_pct <- accessible_features %>%
+  filter(!is.na(ECHAIR)) %>%
+  summarise(echair_pct = w_pct(ECHAIR == 1, WEIGHT)) # = 	4.121627 %
+```
+
+```{r resident_ratings}
+
+# compare respondent rating (housing fit) with those units w "core accessibility" 
+# core accessibility = no step, bed, bath OR lift, bed, bath
+
+#create core acc flag to sort by later
+accessible_features <- accessible_features %>%
+  mutate(
+    core_accessibility = (no_step == 1 & entry_bath == 1 & entry_bed == 1) |
+                         (entry_bed == 1 & entry_bath == 1 & lift == 1), 
+    no_accessibility = (no_step == 0 & entry_bath == 0 & entry_bed == 0 & lift == 0 & ramp == 0)
+  )
+
+# SF
+# respondent rating for units which have "core accessibility" 
+RR_summary <- accessible_features %>%
+  filter(SF, core_accessibility, !is.na(HASUPP)) %>%
+  summarise(
+    rating1_pct = w_pct(HASUPP == "1", WEIGHT),
+    rating2_pct = w_pct(HASUPP == "2", WEIGHT),
+    rating3_pct = w_pct(HASUPP == "3", WEIGHT),
+    rating4_pct = w_pct(HASUPP == "4", WEIGHT),
+    rating5_pct = w_pct(HASUPP == "5", WEIGHT)
+  ) %>%
+  pivot_longer(everything(), names_to = "rating", values_to = "core_percent" ) %>%
+  mutate(rating = row_number())
+
+# respondent rating for units which do not have "core accessibility"
+not_acc_RR_summary <- accessible_features %>%
+  filter(SF, !core_accessibility, !is.na(HASUPP)) %>%
+  summarise(
+    rating1_pct = w_pct(HASUPP == "1", WEIGHT),
+    rating2_pct = w_pct(HASUPP == "2", WEIGHT),
+    rating3_pct = w_pct(HASUPP == "3", WEIGHT),
+    rating4_pct = w_pct(HASUPP == "4", WEIGHT),
+    rating5_pct = w_pct(HASUPP == "5", WEIGHT)
+  ) %>%
+  pivot_longer(everything(), names_to = "rating", values_to = "not_core_percent" ) %>%
+  mutate(rating = row_number())
+
+left_join(RR_summary, not_acc_RR_summary, by = "rating")
+
+# same categories but for MF
+MF_RR <- accessible_features %>%
+  filter(MF, core_accessibility, !is.na(HASUPP)) %>%
+  summarise(
+    rating1_pct = w_pct(HASUPP == "1", WEIGHT),
+    rating2_pct = w_pct(HASUPP == "2", WEIGHT),
+    rating3_pct = w_pct(HASUPP == "3", WEIGHT),
+    rating4_pct = w_pct(HASUPP == "4", WEIGHT),
+    rating5_pct = w_pct(HASUPP == "5", WEIGHT)
+  ) %>%
+  pivot_longer(everything(), names_to = "rating", values_to = "MF_core_percent" ) %>%
+  mutate(rating = row_number())
+
+MF_RR_not_core <- accessible_features %>%
+  filter(MF, !core_accessibility, !is.na(HASUPP)) %>%
+  summarise(
+    rating1_pct = w_pct(HASUPP == "1", WEIGHT),
+    rating2_pct = w_pct(HASUPP == "2", WEIGHT),
+    rating3_pct = w_pct(HASUPP == "3", WEIGHT),
+    rating4_pct = w_pct(HASUPP == "4", WEIGHT),
+    rating5_pct = w_pct(HASUPP == "5", WEIGHT)
+  ) %>%
+  pivot_longer(everything(), names_to = "rating", values_to = "MF_not_core_percent" ) %>%
+  mutate(rating = row_number())
+
+left_join(MF_RR, MF_RR_not_core, by = "rating")
+
+# NO accessibility features 
+strict_RR_summary <- accessible_features %>%
+  filter(SF, no_accessibility, !is.na(HASUPP), !is.na(any_mob_dev)) %>%
+  summarise(
+    rating1_pct = w_pct(HASUPP == "1", WEIGHT),
+    rating2_pct = w_pct(HASUPP == "2", WEIGHT),
+    rating3_pct = w_pct(HASUPP == "3", WEIGHT),
+    rating4_pct = w_pct(HASUPP == "4", WEIGHT),
+    rating5_pct = w_pct(HASUPP == "5", WEIGHT)
+  ) %>%
+  pivot_longer(everything(), names_to = "rating", values_to = "core_percent" ) %>%
+  mutate(rating = row_number())
+```
+
+
 ```{r}
-#not used anymore 
-# library(readxl)
-# library(dplyr)
-# library(tidyr)
-# 
-# jeff_co_HU <- read_excel("data/CO-EST2024-HU-21.xlsx")
-# 
-# jeff_co_HU <- jeff_co_HU %>%
-#   janitor::row_to_names(4, remove_rows_above = TRUE) %>%
-#   janitor::clean_names() %>%
-#   rename(estimates_base = april_1_2020_estimates_base) %>%
-#   mutate(estimates_base = as.integer(estimates_base)) %>%
-#   filter(geographic_area == ".Jefferson County, Kentucky") %>%
-#   pivot_longer(estimates_base:x2024, names_to = "year", values_to = "total_units")
+# looking at common traits for those who gave low satisfaction scores 
+dig_dig_dig <- accessible_features %>%
+  filter(HASUPP == 1 | HASUPP == 2) 
+  # summarise(
+  #   pct_no_step     = weighted.mean(no_step, WEIGHT, na.rm = TRUE),
+  #   pct_entry_bath  = weighted.mean(entry_bath, WEIGHT, na.rm = TRUE),
+  #   pct_entry_bed   = weighted.mean(entry_bed, WEIGHT, na.rm = TRUE),
+  #   pct_lift        = weighted.mean(lift, WEIGHT, na.rm = TRUE),
+  #   pct_ramp        = weighted.mean(ramp, WEIGHT, na.rm = TRUE),
+  #   most_common_floors      = floors[which.max(table(floors))],
+  #   most_common_market_val  = market_val[which.max(table(market_val))],
+  #   most_common_yr_built    = yr_built[which.max(table(yr_built))]
+  # )
 
 ```
 
