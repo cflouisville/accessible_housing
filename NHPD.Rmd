@@ -3,109 +3,341 @@ title: "NHPD"
 output: html_document
 ---
 
-```{r}
+```{r load_libraries}
 library(readxl)
 library(dplyr)
 library(lubridate)
-
-NHPD_df <- read_excel("data/NHPD Properties Only Export.xlsx")
-
-# significant number of these units don't have construction start or end dates :( 
-# HUD sec. 504 passed in 1973
-#Note: target tenant type has some "elderly or disabled, disabled" -- does this mean all units (or more than 5% of units would be accessible??)
-```
-
-```{r}
-library(dplyr)
-library(lubridate)
-
-date_earliest_const_start <- as.Date(NHPD_df$`Earliest Construction Date`)
-
-NHPD_since_1973 <- NHPD_df %>%
-  #make target columns part of Date class
-  mutate(
-    `Earliest Construction Date` = as.Date(`Earliest Construction Date`),
-    `Latest Construction Date` = as.Date(`Latest Construction Date`)
-  ) %>%
-  # keep only listings from after 1973
-  # if earliest year == latest year AND year > 1973,  else if latest const. year > 1973
-  filter((
-    year(`Earliest Construction Date`) == year(`Latest Construction Date`) &
-      year(`Earliest Construction Date`) > 1973
-  ) |
-    year(`Latest Construction Date`) > 1973) %>%
-  # developments with more than 5 units
-  filter(`Total Units` > 5)
-
-
-total_units <- sum(NHPD_since_1973$`Total Units`)
-units_accessible <- total_units * .05
-units_accessible
-```
-
-```{r}
-library(readxl)
 library(stringr)
-#intersect size 86
-#compare NHPD and KHC development addresses 
+library(glptools)
+```
 
+```{r functions}
+clean_addresses <- function(x) {
+  x %>%
+    str_replace("\\s\\d{5}$", "") %>%   # zip
+    str_remove_all("Louisville|Jeffersontown") %>%
+    str_to_lower() %>%
+    str_replace_all("\\b(north|south|east|west|n|s|e|w|ewns)\\b\\.?", "") %>%
+    str_replace_all(
+      "\\b(lane|ln|hwy|highway|way|road|rd|avenue|ave|court|ct|street|st|
+          drive|dr|circle|cir|blvd|pl|plaza|plz|parkway|pkwy)\\b\\.?", "") %>%
+    str_squish() %>%
+    str_trim()
+}
+clean_properties <- function(x) {
+  x %>%
+    str_replace_all("[[:punct:]]", "") %>%
+    str_replace_all(",", "") %>%
+    str_to_lower() %>%
+    str_replace_all("\\b(apartment|apartments|apts|commons|ltd|louisville|homes)\\b", "") %>%
+    str_squish()
+}
+```
+
+```{r read_data}
 KHC <- read_excel("data/KHC Project Listings by Unit Category.xlsx")
 NHPD <- read_excel("data/NHPD Properties Only Export.xlsx")
+```
 
-KHC$address_new <- KHC$Address %>%
-  #remove zip
+```{r hope_vi_associated_addresses}
+# HOPE VI SCATTERED SITES has the largest unit diff bt KHC and NHPD. Below are all the associated addresses for hope vi sityes sourced from: https://projects.propublica.org/hud/properties/KY001000034.
+
+# how I'm dealing with it: clean addresses in both khc and nhpd dfs > identify all rows (from both) which match any of the listed addresses > check if any have special tenant type (disability focused) > if not collapse all into one row with verified unit total (422) with address being headquarters address (gray st.) 
+
+addr_list <- c(
+  "1499 1/2 Bland St", "8018 3rd Street Rd", "3808 Algonquin Pkwy",
+  "8714 Bayberry Pl Apt 1", "8716 Bayberry Pl", "8718 Bayberry Pl",
+  "1626 Beech St", "1485 Bland St Apt 1", "1488 Bland St Apt 1",
+  "1499 Bland St", "2301 Bolling Ave", "3332 Breckenridge Ln",
+  "6300 Cottage Field Cir", "6518 Cottagemeadow Dr", "6526 Cottagemeadow Dr",
+  "6534 Cottagemeadow Dr", "6536 Cottagemeadow Dr", "5508 Delmaria Way",
+  "5508 Delmaria Way", "1427 E Breckinridge St", "316 E Breckinridge St",
+  "537 E Breckinridge St", "743 E Breckinridge St", "801 E Broadway",
+  "611 E Burnett Ave", "702 E Burnett Ave",
+  "712 E Jacob St", "714 E Jacob St", "716 E Jacob St",
+  "732 E Jacob St", "500 E Jefferson St", "1068 E Kentucky St",
+  "1070 E Kentucky St", "501 E Liberty St", "912 E Liberty St",
+  "914 E Liberty St", "916 E Liberty St", "939 E Muhammad Ali Blvd Unit 1",
+  "943 E Muhammad Ali Blvd", "947 E Muhammad Ali Blvd", "533 E Oak St",
+  "4506 Fegenbush Ln", "1515 Gallagher St", "1525 Gallagher St",
+  "1527 Gallagher St", "1531 Gallagher St", "1534 Gallagher St",
+  "1536 Gallagher St", "2704 Grand Ave Apt 11", "4007 Grand Ave",
+  "4009 Grand Ave", "2855 Grinstead Dr", "1211 Heafer Rd",
+  "1213 Heafer Rd", "1215 Heafer Rd", "413 Iowa Ave",
+  "415 Iowa Ave", "4502 Landside Dr", "4509 Landside Dr",
+  "746 Logan St", "1518 Magazine St Apt 1", "1521 Magazine St Apt 1",
+  "1529 Magazine St Apt 1", "1912 Magazine St", "1916 Magazine St",
+  "1918 Magazine St", "3600 Manslick Rd", "3602 Manslick Rd",
+  "3618 Manslick Rd", "3620 Manslick Rd", "919 Marshall St",
+  "921 Marshall St", "923 Marshall St", "328 N Birchwood Ave",
+  "1820 Neville Dr", "2800 Northwestern Pkwy", "1231 Ormsby Ln",
+  "1233 Ormsby Ln", "1235 Ormsby Ln", "1237 Ormsby Ln",
+  "1239 Ormsby Ln", "1241 Ormsby Ln", "922 Ormsby Ln",
+  "924 Ormsby Ln", "926 Ormsby Ln", "1512 Pawtuket Ct",
+  "3718 Powell Ave", "8801 Riley Ave", "9009 Riley Ave",
+  "2720 Rodman St", "708 Roselane St", "710 Roselane St",
+  "643 S 18th St", "645 S 18th St", "213 S 25th St",
+  "646 S 26th St", "623 S 28th St", "1014 S 29th St",
+  "3931 S 3rd St", "211 S 43rd St", "906 S 6th St Apt 1",
+  "908 S 6th St Apt 1", "943 S 7th St", "409 S Campbell St",
+  "537 S Campbell St", "539 S Campbell St", "1448 S Hancock St Apt 1",
+  "547 S Shelby St", "832 S Shelby St", "2903 Six Mile Ln",
+  "3430 Southern Ave", "4737 Southern Pkwy", "2214 Steier Ln",
+  "2218 Steier Ln", "9910 Taylorsville Rd", "1213 Texas Ave",
+  "12509 Townepark Way", "12511 Townepark Way", "3209 University Rd",
+  "7209 Vaughn Mill Rd", "7211 Vaughn Mill Rd", "520 W Breckinridge St Apt 1",
+  "601 W Breckinridge St", "2114 W Jefferson St", "1638 W Kentucky St Apt 1",
+  "1638 W Kentucky St Apt 10", "2904 W Kentucky St", "3403 W Muhammad Ali Blvd"
+)
+
+addr_list_clean <- addr_list %>%
   str_replace("\\s\\d{5}$", "") %>%
-  str_replace("Louisville", "") %>%
-  str_replace("Jeffersontown", "") %>%
+  str_remove_all("Louisville|Jeffersontown") %>%
   str_to_lower() %>%
-  str_replace_all("\\b(north|south|east|west|e|w|n|s)\\b\\.?", "") %>%
-  str_replace_all("\\b(lane|hwy|way|road|avenue|ave|ct|pacel|court|street|dr|drive|circle|blvd|rd|ln|st|plaza|parkway)\\b\\.?", "") %>%
-  str_squish() %>%
-  str_trim()
+  str_replace_all("\\b(north|south|east|west|n|s|e|w)\\b\\.?", "") %>%
+  str_replace_all(
+    "\\b(lane|hwy|way|road|avenue|ave|ct|court|street|dr|drive|circle|blvd|rd|ln|st|plaza|parkway|highway)\\b\\.?", "") %>%
+  str_replace_all("\\b(unit|apt|apartment)\\s*\\d+\\b", "") %>%  
+  str_squish()
+```
 
-NHPD$address_new <- NHPD$`Property Address` %>%
-  str_to_lower() %>%
-  str_replace_all("\\b[ewns]\\b", "") %>%
-  str_replace_all("\\b(ln|hwy|way|ave|pl|ct|rd|st|cir|dr|plz|pkwy)\\b", "") %>%
-  str_squish() %>%
-  str_trim()
+```{r prepare_ dfs}
+library(readxl)
+library(dplyr)
+library(stringr)
 
-NHPD_addresses <- unique(NHPD$address_new)
-KHC_addresses <- unique(KHC$address_new)
+#clean property names and addresses
+KHC <- mutate(KHC, khc_name_clean = clean_properties(KHC$`Development Name`))
+KHC <- mutate(KHC, khc_address_clean = clean_addresses(KHC$Address))
 
-khc_not_in_nhpd <- setdiff(KHC_addresses, NHPD_addresses)
-khc_in_nhpd <- intersect(KHC_addresses, NHPD_addresses) 
+NHPD <- mutate(NHPD, nhpd_prop_name_clean = clean_properties(NHPD$`Property Name`))
+NHPD <- mutate(NHPD, nhpd_address_clean = clean_addresses(NHPD$`Property Address`))
 
-head(khc_not_in_nhpd)
+#special property groups
+shawnee <- KHC %>%
+  filter(str_detect(str_to_lower(`Development Name`), "shawnee renaissance")) %>%
+  distinct(`Development Name`, .keep_all = TRUE) %>%
+  filter(`Development Name` == "Shawnee Renaissance Apartments I") %>%
+  mutate(
+    `Development Name` = "Shawnee Renaissance Apartments",
+    `Total Units` = 177 # sum of shawnee i - iv total units = 177
+)
+# combine day spring woods and day spring homes (to match khc)
+day_spring <- NHPD %>%
+  filter(str_detect(str_to_lower(`Property Name`), "day spring")) %>%
+  distinct(`Property Name`, .keep_all = TRUE) %>%
+  filter(`Property Name` == "DAY SPRING HOMES") %>%
+  mutate(`Property Name` = "DAY SPRING WOODS AND DAY SPRING HOMES", `Total Units` = 18, `Target Tenant Type` == "Disabled") # sum of day spring woods and day spring homes = 18
 
-# #"1405 broadway"
-# "1162 hopeful" and "1164 hopeful"
-# "3421 illinois" and "3434 illinois" 
-# "4516, 4518, 4524, 4526, 4528 cane run" vs "4517 cane run rd"
-# "lambourne blvd" vs "9643 lamborne blvd" 
-# "muhammad ali blvd" 
-# "greenwood & beech aves" vs "greenwood, hale & kentucky"
+# match hope vi ss addresses, collapse 
+hope_vi_matched_from_khc <- KHC %>%
+  filter(khc_address_clean %in% addr_list_clean)
+
+hope_vi_matched_from_nhpd <- NHPD %>%
+  filter(nhpd_address_clean %in% addr_list_clean)
+  
+# remove repeat prop name rows from KHC
+KHC_collapsed <- KHC %>% 
+  filter(!(str_detect(`Development Name`, "Shawnee Renaissance")), Units != 0) %>%
+  filter(!khc_address_clean %in% addr_list_clean) %>%
+  bind_rows(shawnee) %>%
+  mutate(`Total Units` = if_else(`Development Name` == "Saint Martin Apartments", 422, `Total Units`), 
+         `Development Name` = if_else(`Development Name` == "Saint Martin Apartments", "Hope VI Scattered Sites", `Development Name`)) %>%
+  mutate(`Total Units` = if_else(`Development Name` == "Crossings at Mill Creek", 180, `Total Units`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "Park DuValle II-A", "Park DuValle II A", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "Park DuValle II-B", "Park DuValle II B", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Placed in Service` == "45226", "Yorktown Senior Apartments", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Placed in Service` == "45544", "Roosevelt School", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Placed in Service` == "34780", "House of Rose", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Placed in Service` == "39056", "New Directions Single Family Homes", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "Cedar Grove Commons", "Cedar Grove II Commons", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "Bessels Court Lease Purchase Homes", "Cottages of Fawn Lakes", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "French Quarters, Phase II", "French Quarters Phase II", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "French Quarters, Phase III", "French Quarters Phase II", `Development Name`)) %>%
+  mutate(`Development Name` = if_else(`Development Name` == "Manslick Ventures LLC - AKA  French Quarters, Phase III - copy", "French Quarters Phase III", `Development Name`)) %>%
+  distinct(`Development Name`, .keep_all = TRUE) %>%
+  rename(khc_units = `Total Units`) %>%
+  # bradford point (older version) - 34320, Father Maloney's Boys Home - 38567, City View Park: acorn - 34335, Lechner scattered sites-34455
+  filter(!(`Placed in Service` %in% c(35641, 41344, 34320, 38567, 34335, 34455))) %>%
+  #york towers outdated
+  filter(`Development Name` %not_in% c("Russellport Single Family Homes, Ltd. I", "Jackson Woods Apartments Rehab", "1405 West Broadway Senior Apartments")) %>%
+  filter(!(str_detect(`Development Name`, "Manslick Ventures")))
+
+# filter to unique property names, hold NA so not collapsed to one
+NHPD_na <- NHPD %>%
+  filter(is.na(`Property Name`))
+NHPD_collapsed <- NHPD %>%
+  filter(!is.na(`Property Name`)) %>%
+  distinct(`Property Name`, .keep_all = TRUE) %>%
+  filter(!(`NHPD Property ID` %in% c("1102251","1048324", "1048667"))) #duplicates
+NHPD_collapsed <- bind_rows(
+  NHPD_collapsed,
+  NHPD_na
+)
+
+# clean property names, addresses 
+KHC_df <- KHC_collapsed %>%
+  select(`Development Name`, khc_name_clean, Address, khc_address_clean , khc_units, `Unit Category`, `Unit Type`, Units) %>%
+  rename(`Total Units` = Units)
+
+NHPD_df <- NHPD_collapsed %>%
+  filter(!(str_detect(str_to_lower(`Property Name`), "day s")), `Total Units` != 0 ) %>%  
+  filter(!nhpd_address_clean %in% addr_list_clean) %>%
+  bind_rows(day_spring) %>%
+  mutate(`Total Units` = if_else(`Property Name` == "HOPE VI SCATTERED SITES", 422, `Total Units`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1176393,"The Eclipse in Russell", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1048331,"JO BLANTON HOUSE", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1049426,"Overlook Terrace", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1048340,"Parkland Green Apartments", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1049414,"WELLSPRING TONINI", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1049386,"COVENTRY COMMONS II", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1103720 ,"FRENCH QUARTERS PHASE III", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1048563 ,"FEYHURST PHASE II", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1003532 ,"BERRYTOWN II", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1048465 ,"CHAUNCEY II", `Property Name`)) %>%
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1162216 ,"FRENCH QUARTERS PHASE II", `Property Name`)) %>%  
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1048000 ,"CALIFORNIA SQUARE II APARTMENTS", `Property Name`)) %>% 
+  mutate(`Property Name` = if_else(`NHPD Property ID` == 1127732 ,"Riverport Landings Family Apartments", `Property Name`)) %>%
+  filter(!(`Property Name` %in% c("ST XAVIER", "1709 Rowan St"))) %>%
+  filter(!(`NHPD Property ID` == 1048255)) %>% #duplicate
+  rename(nhpd_units = `Total Units`) %>%
+  select(`Property Name`, nhpd_prop_name_clean, `Property Address`, nhpd_address_clean, nhpd_units, `Target Tenant Type`, `Total Active Subsidies`)
+
+#re-clean after special cases 
+KHC_df <- mutate(KHC_df, khc_name_clean = clean_properties(KHC_df$`Development Name`))
+KHC_df <- mutate(KHC_df, khc_address_clean = clean_addresses(KHC_df$Address))
+
+NHPD_df <- mutate(NHPD_df, nhpd_prop_name_clean = clean_properties(NHPD_df$`Property Name`))
+NHPD_df <- mutate(NHPD_df, nhpd_address_clean = clean_addresses(NHPD_df$`Property Address`))
+
 
 ```
 
-```{r}
-#compare by property name 
-#intersect size 135
+```{r matching}
 
-KHC$property_name_new <- KHC$`Development Name` %>%
-  str_to_lower() %>%
-  str_trim
+#first round match - property names
+name_matches <- inner_join(
+  KHC_df,
+  NHPD_df,
+  by = c("khc_name_clean" = "nhpd_prop_name_clean"),
+  suffix = c(".khc", ".nhpd")
+)
 
-NHPD$propert_name_new <- NHPD$`Property Name` %>%
-  str_to_lower() %>%
-  str_trim()
+# anti join to create df of all rows from KHC not in name_matches 
+KHC_remaining <- anti_join(
+  KHC_df,
+  name_matches,
+  by = "Development Name"
+)
 
-NHPD_properties <- unique(NHPD$propert_name_new)
-KHC_properties <- unique(KHC$property_name_new)
+NHPD_remaining <- anti_join(
+  NHPD_df, 
+  name_matches, 
+  by = "Property Name"
+)
 
-khc_p_not_in_nhpd <- setdiff(KHC_properties, NHPD_properties)
-khc_p_in_nhpd <- intersect(KHC_properties, NHPD_properties) 
+#second round match - address 
+address_matches <- inner_join(
+  KHC_remaining,
+  NHPD_remaining,
+  by = c("khc_address_clean" = "nhpd_address_clean"),
+  suffix = c(".khc", ".nhpd")
+)
 
+#combine 
+final_matches <- bind_rows(
+  name_matches %>% mutate(match_type = "name"),
+  address_matches %>% mutate(match_type = "address")
+)
+
+# unmatched rows (from both KHC and NHPD)
+KHC_unmatched <- anti_join(
+  KHC_remaining,
+  final_matches,
+  by = "Development Name"
+)
+NHPD_unmatched <- anti_join(
+  NHPD_df,
+  final_matches,
+  by = "Property Name"
+)
+
+# make sure we didn't lose (or gain) rows -- should be TRUE
+nrow(final_matches) + nrow(KHC_unmatched) == nrow(KHC_df)
 ```
 
+```{r completeness}
+library(stringr)
+library(dplyr)
+
+#target is a string 
+completeness <- function(df, target) {
+  completeness <- 0.00
+  if (str_to_lower(target) == "khc") {
+    KHC_matched <- df %>% distinct(`Development Name`) %>% nrow()
+    completeness = (KHC_matched / nrow(KHC_df)) * 100
+  } else if (str_to_lower(target) == "nhpd") {
+    NHPD_matched <- df %>% distinct(`Property Name`) %>% nrow()
+    completeness = (NHPD_matched / nrow(NHPD_df)) * 100
+  }else{ 
+    paste("invalid arg")
+    }
+  paste(target, ": ", round(completeness, 2), "%", sep = "")
+}
+
+completeness(final_matches, "khc")
+completeness(final_matches, "nhpd")
+
+
+nhpd_duplicate_matches <- final_matches %>%
+  count(`Property Name`, name = "n_matches") %>%
+  filter(n_matches > 1) %>%
+  arrange(desc(n_matches))
+
+khc_duplicate_matches <- final_matches %>%
+  count(`Development Name`, name = "m_matches") %>%
+  filter(m_matches > 1) %>%
+  arrange(desc(m_matches))
+```
+
+```{r merge}
+
+# merge matches with KHC unmatched and NHPD unmatched (keep unit counts for each)
+# create new df with rows where khc units and nhpd units do not match 
+
+final_matches %<>%
+  janitor::clean_names() %>%
+  mutate(match_type = "matched")
+
+from_KHC <- KHC_unmatched %>%
+  janitor::clean_names() %>%
+  mutate(match_type = "khc unmatched")
+
+from_NHPD <- NHPD_unmatched %>%
+  janitor::clean_names() %>%
+  mutate(match_type = "nhpd unmatched")
+
+#final list
+merged_all <- bind_rows(final_matches, from_KHC, from_NHPD) %>%
+  rename(
+    khc_development_name = development_name,
+    khc_address = address,
+    nhpd_property_name = property_name,
+    nhpd_address = property_address
+  ) %>%
+  select(-nhpd_address_clean,
+         -nhpd_prop_name_clean,
+         -khc_name_clean,
+         -khc_address_clean) %>%
+  mutate(nhpd_units = if_else(nhpd_property_name == "RUSSELL PHASE I LTD", 26, nhpd_units),
+         nhpd_units = if_else(nhpd_property_name == "H TEMPLE SPEARS ASSISTED LIVING FACILITY", 65, nhpd_units),
+         khc_units= if_else(khc_development_name == "California Square II", 101, khc_units), 
+         nhpd_units = if_else(nhpd_property_name == "STODDARD JOHNSTON SCHOLAR HOUSE", 57, nhpd_units),
+         khc_units= if_else(khc_development_name == "CRPS Emerging", 17, khc_units), 
+         nhpd_units = if_else(nhpd_property_name == "CRPS EMERGING", 17, nhpd_units),
+         khc_units= if_else(khc_development_name == "Legacy Housing Partners II-Rental Homes LLC", 13, khc_units), 
+         nhpd_units = if_else(nhpd_property_name == "LEGACY HOUSING PARTNERS II", 13, nhpd_units),
+         ) %>% 
+  mutate(unit_diff = abs(khc_units - nhpd_units)) 
+```
 
