@@ -8,7 +8,7 @@ output:
     toc: yes
     toc_float: yes
     code_folding: hide
-date: "2025-11-25"
+date: "2026-01-21"
 knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = file.path(dirname(inputFile), 'docs/index.html')) })
 ---
 
@@ -787,7 +787,7 @@ showtext_auto()
 
 HH_prev <- household_dis %>%
   filter(year == 2023, var_type == "percent") %>%
-  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_hearing, any_dis_any),
+  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_cognitive, any_dis_hearing, any_dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
   select(-race, -sex, -var_type, -FIPS) %>%
