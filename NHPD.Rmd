@@ -341,3 +341,17 @@ merged_all <- bind_rows(final_matches, from_KHC, from_NHPD) %>%
   mutate(unit_diff = abs(khc_units - nhpd_units)) 
 ```
 
+```{r}
+# #all units classified as "disabled" or "elderly" or 
+mf_accessible_estimates_elderly_disabled <- merged_all %>%
+  filter(target_tenant_type %in% c("Disabled", "Elderly or disabled", "Elderly", "Eldery or Disabled")) %>%
+  summarise(total_accessible_units = sum(nhpd_units,  na.rm = TRUE))
+
+#all other units (take 5% bc federally funded)
+mf_accessible_estimates_general <- merged_all %>%
+  filter(target_tenant_type %not_in% c("Disabled", "Elderly or disabled", "Elderly", "Eldery or Disabled")) %>%
+  summarise(total_acc_units_2 = floor(.05*sum(nhpd_units, na.rm = TRUE)))
+
+# 5011 + 1032 = 6,043 
+```
+
