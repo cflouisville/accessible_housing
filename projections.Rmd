@@ -410,7 +410,6 @@ hasupp_by_device <- accessible_features %>%
   summarise(
     num_observations = n(),
     mean_rating = mean(HASUPP, na.rm = TRUE),
-    median_rating = median(HASUPP, na.rm = TRUE),
     pct_high_rate = weighted.mean(HASUPP %in% c(4,5), WEIGHT, na.rm = TRUE),
     pct_low_rate = weighted.mean(HASUPP %in% c(1,2), WEIGHT, na.rm = TRUE),
     pct_core = weighted.mean(core_accessibility_flag, WEIGHT, na.rm = TRUE)
