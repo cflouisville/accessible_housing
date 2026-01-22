@@ -125,15 +125,15 @@ accessible_features <- AHS_2019_micro %>%
     MF = BLD %in% 4:9,
     
     yr_built = case_when(
-      YRBUILT <= 1940 ~ "built_1939_or_earlier" , 
+      YRBUILT < 1940 ~ "built_1939_or_earlier" , 
       YRBUILT %in% 1940:1950 ~ "built_1940_to_1959", 
       YRBUILT %in% 1960:1970 ~ "built_1960_to_1979", 
       YRBUILT %in% 1980:1990 ~ "built_1980_to_1999", 
-      YRBUILT <= 2000 ~ "built after 2000"
+      YRBUILT >= 2000 ~ "built after 2000"
     ), 
     
     market_val = case_when( 
-      MARKETVAL >= 9000000  ~ "more_than_10M", 
+      MARKETVAL > 9000000  ~ "more_than_10M", 
       MARKETVAL %in% 5000000:9000000 ~ "between_5_and_9M", 
       MARKETVAL %in% 1000000:4999999 ~ "between_1_and_5M", 
       MARKETVAL %in% 750000:999999 ~ "between_750k_and_1M", 
@@ -253,7 +253,8 @@ accessible_features %<>%
   mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
     ~ case_when(.x %in% c(-6, -9) ~ NA, TRUE ~ .x)
   )) %>%
-  mutate(any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1)
+  mutate(any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1) %>%
+  mutate(wechair_user = WCHAIR == 1  | ECHAIR == 1)
 
 #calculate % ppl who use mobility device 
 mob_dev_pct <- accessible_features %>%
@@ -368,6 +369,52 @@ dig_dig_dig <- accessible_features %>%
   #   most_common_market_val  = market_val[which.max(table(market_val))],
   #   most_common_yr_built    = yr_built[which.max(table(yr_built))]
   # )
+
+```
+
+```{r wheelchair_users_RR}
+wechair_satisfaction <- accessible_features %>%
+  filter(wechair_user, SF, HASUPP %in% c(4,5)) %>%
+  select(HASUPP, no_step:market_val, -SF, -MF, WEIGHT) %>%
+  summarise(
+    pct_4_5 = mean(HASUPP %in% c(4,5), na.rm = TRUE)
+  )
+
+pct_core_units_high_rating <- accessible_features %>%
+  mutate(
+    core_accessibility_flag = no_step == 1 &
+      entry_bath == 1 & entry_bed == 1 |
+      entry_bed == 1 & entry_bath == 1 & lift == 1
+  ) %>%
+  filter(wechair_user == 1,core_accessibility_flag == TRUE) %>%
+  summarise(pct_4_5 = mean(HASUPP %in% c(4, 5), na.rm = TRUE))
+
+hasupp_by_device <- accessible_features %>%
+  mutate(
+    core_accessibility_flag = no_step == 1 &
+      entry_bath == 1 & entry_bed == 1 |
+      entry_bed == 1 & entry_bath == 1 & lift == 1
+  ) %>%
+  mutate(
+    device_type = case_when(
+      wechair_user == 1 ~ "Manual or Electric wheelchair",
+      WCHAIR  == 1 ~ "Manual wheelchair",
+      ECHAIR  == 1 ~ "Electric wheelchair",
+      CANE    == 1 ~ "Cane",
+      CRUTCH  == 1 ~ "Crutches",
+      MOBOTHER == 1~ "Other Device", 
+      TRUE         ~ "Unkown"
+    )) %>%
+  filter(!is.na(HASUPP)) %>%
+  group_by(device_type) %>%
+  summarise(
+    num_observations = n(),
+    mean_rating = mean(HASUPP, na.rm = TRUE),
+    median_rating = median(HASUPP, na.rm = TRUE),
+    pct_high_rate = weighted.mean(HASUPP %in% c(4,5), WEIGHT, na.rm = TRUE),
+    pct_low_rate = weighted.mean(HASUPP %in% c(1,2), WEIGHT, na.rm = TRUE),
+    pct_core = weighted.mean(core_accessibility_flag, WEIGHT, na.rm = TRUE)
+  )
 
 ```
 
