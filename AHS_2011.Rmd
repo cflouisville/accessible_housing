@@ -1,0 +1,103 @@
+---
+title: "AHS_2011"
+output: html_document
+---
+
+```{r load_AHS}
+library(glptools)
+glp_load_packages(T)
+
+AHS_2011_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/accessible_housing/data/ahs2011m.csv")
+```
+Harvard metrics = NOSTEP, 
+NOSTEP = Entrance accessible without steps or stairs
+BUILT = year built
+      Response Codes
+      1919: 1919 or earlier
+      1920: 1920 to 1929
+      1930: 1930 to 1939
+      1940: 1940 to 1949
+      1950: 1950 to 1959
+      1960: 1960 to 1969
+      1970: 1970 to 1974
+      1975: 1975 to 1979
+      1980: 1980 to 1984
+      1985: 1985 to 1989
+      1990: 1990 to 1994
+      1995: 1995 to 1999
+      2000 : YYYY: 2000 to YYYY
+NUNITS = Number of living units in building (1-997)
+NUNIT2 = Structure type
+CANE = Someone in household uses a cane or walker
+CRUTCH = Someone in household uses crutches
+ECHAIR = Someone in the household uses an electric wheelchair, cart, or scooter
+WCHAIR = Someone in the household uses a manual wheelchair
+HDSB = Household has a disabled person
+STAIRS = stairs in unit
+STAIRRL = Stair railings firmly attached
+HMACAB = Presence and use of wheelchair accessible kitchen cabinets
+HMBRL = Presence and use of handrails or grab bars in bathroom
+HMBROOM = Presence and use of wheelchair accessible bathroom
+HMBST = Presence and use of built-in shower seats
+HMCLCTRL = Presence and use of wheelchair accessible climate controls
+HMCOUNT = Presence and use of wheelchair accessible countertops
+HMELEVATE = Presence and use of elevators in home
+HMENTBD = Presence and use of bedroom on entry level
+HMENTBTH = full bath entry
+HMHNDLE = handles instead of knobs
+HMHNDRL = handrails or grab bars
+HMKIT - wheelchair acc kitchen
+HMLEVEL = no steps between rooms
+HMOUTLET = wheelchair accessible outlets
+HMORL =  handrails or grab bars in other areas
+HMRAMPS = ramps in home
+HMSKLVR= sink handles or levers
+HMSWITCH = Presence and use of wheelchair accessible electrical switches
+HMWHEELN = Number of wheelchair accessible features in the home
+HMXWDR = Presence and use of extra-wide doors or hallways
+
+```{r}
+accessible_features_2011 <- AHS_2011_micro %>%
+  select(NOSTEP, CANE, CRUTCH, ECHAIR, WCHAIR, HDSB, STAIRS, STAIRRL, HMACAB, HMBRL, HMBROOM, HMBST, HMCLCTRL, HMCOUNT, HMELEVATE, HMENTBD, HMENTBTH, HMHNDRL, HMKIT, HMLEVEL, HMOUTLET, HMORL, HMRAMPS, HMSKLVR, HMSWITCH, HMWHEELN, HMXWDR, BUILT, NUNITS, NUNIT2, WEIGHT)%>%
+  mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
+  mutate(
+    NOSTEP = case_when(
+      NOSTEP %in% c(-9, -6) ~ NA, 
+      NOSTEP == 1 ~ T,
+      NOSTEP == 2 ~ F),
+    
+    STAIRRL = case_when(
+      STAIRRL %in% c(-9, -6) ~ NA, 
+      STAIRRL == 1 ~ TRUE, # only true when all stairs have attached rails
+      STAIRRL %in% c(2,3,4) ~ FALSE)
+    ) %>%
+  mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, HDSB, STAIRS),
+                ~ case_when(.x %in% c(-6, -9) ~ NA,
+                            .x == 1 ~ TRUE, 
+                            .x == 2 ~ FALSE,
+                            TRUE ~ NA)
+                )) %>%
+  mutate(across(c(HMACAB, HMBRL, HMBROOM, HMBST, HMCLCTRL, HMCOUNT, HMELEVATE, HMENTBD, HMENTBTH, HMHNDRL, HMKIT, HMLEVEL, HMOUTLET, HMORL, HMRAMPS, HMSKLVR, HMSWITCH, HMWHEELN, HMXWDR), 
+                ~ case_when(.x %in%  c(-6, -9) ~ NA,
+                            .x %in% c(1,2) ~ TRUE, # 1/2 = is present, is/is not in use 
+                            .x == 3 ~ FALSE, 
+                            TRUE ~ NA)
+                )) %>%
+  mutate(
+    SF = case_when(
+      NUNIT2 %in% c(1,2, 4) ~ TRUE, 
+      NUNIT2 %in% c(3) ~ FALSE), 
+    MF = case_when(
+      NUNIT2 == 3 ~ TRUE,      
+      NUNIT2 %in% c(1,2,4) ~ FALSE),
+    
+    yr_built = case_when(
+      BUILT <= 1940 ~ "built_1939_or_earlier" , 
+      BUILT %in% 1940:1950 ~ "built_1940_to_1959", 
+      BUILT %in% 1960:1975 ~ "built_1960_to_1979", 
+      BUILT %in% 1980:1995 ~ "built_1980_to_1999", 
+      BUILT >= 2000 ~ "built after 2000"
+    ))
+
+
+```
