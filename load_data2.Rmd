@@ -1672,6 +1672,8 @@ print(plot_summary)
 # American Housing Survey (AHS)
 ## Household Level Accessibility Estimates
 
+For Jefferson County, the number of households that include at least one person who uses any mobility assistive device is estimated to be 43,517, and around 18,031 include at least one person with either a manual or electric wheelchair. 
+
 ```{r household_accessibility_devices}
 library(showtext)
 showtext_auto()
@@ -1681,9 +1683,6 @@ load(file = "interim_data/accessible_features_hh.RData")
 
 # percentage of households that include at least one person that uses a mobility device (by device type)
 hh_devices <- accessible_features %>%
-  mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
-    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
-  )) %>%
   summarise(Any = weighted.mean(any_mob_dev, WEIGHT, na.rm = TRUE) *100, 
             Cane = weighted.mean(CANE, WEIGHT, na.rm = TRUE)*100, 
             `Electric Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
@@ -1691,7 +1690,7 @@ hh_devices <- accessible_features %>%
             `Other Mobility Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
             Crutches = weighted.mean(CRUTCH, WEIGHT, na.rm = TRUE)*100
             ) %>%
-  pivot_longer(cols = Any:`Other Mobility Device`, names_to = "Device Type", values_to = "Percent")
+  pivot_longer(cols = Any:Crutches, names_to = "Device Type", values_to = "Percent")
 
 plot1 <- ggplot(hh_devices, aes(x = `Device Type`, y = Percent)) +
   geom_col(fill = "#f60", width = .5) +
@@ -1700,7 +1699,7 @@ plot1 <- ggplot(hh_devices, aes(x = `Device Type`, y = Percent)) +
   labs(
     title = "Percent of Households in Which Someone Uses a Mobility Assistive Device",
     x = NULL,
-    y = NULL
+    y = "Percent of Population"
   ) +
  theme_minimal(base_family = "Montserrat",base_size =  22) +
   theme(
