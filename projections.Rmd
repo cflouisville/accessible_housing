@@ -79,9 +79,11 @@ AHS_2019_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation o
 # N or -6: Not applicable
 
 accessible_features <- AHS_2019_micro %>%
-  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL, HASUPP, WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER) %>%
+  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL, HASUPP, WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER, HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME) %>%
   mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
   mutate(
+    any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1), 
+
     no_step = case_when(
       NOSTEP == 9 ~ NA, 
       NOSTEP == 1 ~ T,
@@ -148,7 +150,7 @@ accessible_features <- AHS_2019_micro %>%
       HASUPP == -6 ~ NA, 
       HASUPP == -9 ~ NA, 
       HASUPP %in% c(1,2,3,4,5) ~ HASUPP
-    )
+    ), 
 )
 save(accessible_features, file = "interim_data/accessible_features_hh.RData")
 #rm(AHS_2019_micro)
@@ -255,6 +257,7 @@ accessible_features %<>%
   )) %>%
   mutate(any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1) %>%
   mutate(wechair_user = WCHAIR == 1  | ECHAIR == 1)
+
 
 #calculate % ppl who use mobility device 
 mob_dev_pct <- accessible_features %>%
@@ -397,7 +400,6 @@ hasupp_by_device <- accessible_features %>%
   ) %>%
   mutate(
     device_type = case_when(
-      wechair_user == 1 ~ "Manual or Electric wheelchair",
       WCHAIR  == 1 ~ "Manual wheelchair",
       ECHAIR  == 1 ~ "Electric wheelchair",
       CANE    == 1 ~ "Cane",
@@ -417,5 +419,111 @@ hasupp_by_device <- accessible_features %>%
 
 ```
 
+```{r household_accessibility_devices}
+library(showtext)
+showtext_auto()
+font_add_google("Montserrat", "Montserrat")
+
+# percentage of households that include at least one person that uses a mobility device (by device type)
+hh_devices <- accessible_features %>%
+  mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
+    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
+  )) %>%
+  summarise(Any = weighted.mean(any_mob_dev, WEIGHT, na.rm = TRUE) *100, 
+            Cane = weighted.mean(CANE, WEIGHT, na.rm = TRUE)*100, 
+            `Electric Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
+            `Manual Wheelchair` = weighted.mean(WCHAIR, WEIGHT, na.rm = TRUE)*100,
+            `Other Mobility Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
+            Crutches = weighted.mean(CRUTCH, WEIGHT, na.rm = TRUE)*100
+            ) %>%
+  pivot_longer(cols = Any:`Other Mobility Device`, names_to = "Device Type", values_to = "Percent")
+
+plot1 <- ggplot(hh_devices, aes(x = `Device Type`, y = Percent)) +
+  geom_col(fill = "#f60", width = .5) +
+  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+            vjust = -0.5, size = 6) +
+  labs(
+    title = "Percent of Households in Which Someone Uses a Mobility Assistive Device",
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+ theme_minimal(base_family = "Montserrat",base_size =  22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
+  )
+print(plot1)
+
+ggsave("interim_data/plots/hh_devices.png", plot= plot1)
+
+```
+
+```{r hh_difficulty}
+
+# For homes with someone who uses a mobility device, what percent report difficulty accessing parts of their home
+hh_room_difficulty <- accessible_features %>%
+  mutate(across(c(HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME), 
+    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
+  )) %>%
+  filter(any_mob_dev) %>%
+  mutate(any_hh_diff = HAGETKIT == 1 | HAGETBATH == 1| HAGETBED == 1 | HAGETHOME == 1) %>%
+  summarise(Any = weighted.mean(any_hh_diff, WEIGHT, na.rm = TRUE)*100,
+            Entry = weighted.mean(HAGETHOME, WEIGHT, na.rm = TRUE)*100, 
+            Kitchen = weighted.mean(HAGETKIT, WEIGHT, na.rm = TRUE)*100, 
+            Bathroom = weighted.mean(HAGETBATH, WEIGHT, na.rm = TRUE)*100, 
+            Bedroom = weighted.mean(HAGETBED, WEIGHT, na.rm = TRUE)*100) %>%
+    pivot_longer(cols = Any:Bedroom, names_to = "Area of House", values_to = "Percent")
+
+plot2 <- ggplot(hh_room_difficulty, aes(x = `Area of House`, y = Percent)) +
+  geom_col(fill = "#f60", width = .5) +
+  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+            vjust = -0.5, size = 6) +
+  labs(
+    title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
+    subtitle = "For homes with at least one person who uses a mobility assistive device", 
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+ theme_minimal(base_family = "Montserrat",base_size =  22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
+  )
+print(plot2)
+
+ggsave("interim_data/plots/hh_diff.png", plot= plot2)
 
 
+# For ALL homes, what percent report difficulty accessing parts of their home
+hh_room_difficulty_ALL <- accessible_features %>%
+  mutate(across(c(HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME), 
+    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
+  )) %>%
+  mutate(any_hh_diff = HAGETKIT == 1 | HAGETBATH == 1| HAGETBED == 1 | HAGETHOME == 1) %>%
+  summarise(Any = weighted.mean(any_hh_diff, WEIGHT, na.rm = TRUE)*100,
+            Entry = weighted.mean(HAGETHOME, WEIGHT, na.rm = TRUE)*100, 
+            Kitchen = weighted.mean(HAGETKIT, WEIGHT, na.rm = TRUE)*100, 
+            Bathroom = weighted.mean(HAGETBATH, WEIGHT, na.rm = TRUE)*100, 
+            Bedroom = weighted.mean(HAGETBED, WEIGHT, na.rm = TRUE)*100) %>%
+    pivot_longer(cols = Any:Bedroom, names_to = "Area of House", values_to = "Percent")
+
+plot3 <- ggplot(hh_room_difficulty_ALL, aes(x = `Area of House`, y = Percent)) +
+  geom_col(fill = "#f60", width = .5) +
+  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+            vjust = -0.5, size = 6) +
+  labs(
+    title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
+    subtitle = "For all homes", 
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+ theme_minimal(base_family = "Montserrat",base_size =  22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
+  )
+print(plot3)
+
+ggsave("interim_data/plots/hh_diff_ALL.png", plot= plot3)
+
+```
