@@ -33,6 +33,8 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FA
 
 options(arrow.skip_nul = TRUE)
 
+load("data/acs_micro_subset_2024.RData")
+
 # acs_micro <- arrow::read_feather("C:/Users/harri/OneDrive/GLP/glpdata/data-raw/microdata/acs_micro_FIPS_repwts.feather")
 
 # disability_data <- acs_micro %>%
@@ -40,8 +42,8 @@ options(arrow.skip_nul = TRUE)
 # 
 # save(disability_data, file = "interim_data/acs_micro_subset.RData")
 
-acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_FIPS_repwts.feather") |> 
-  as.data.frame() # had to add this line bc it wasn't reading the feather file anymore??
+# acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/acs_micro_FIPS_repwts.feather") |> 
+#   as.data.frame() # had to add this line bc it wasn't reading the feather file anymore??
 
 # base_example <- acs_micro[acs_micro$FIPS == "21111",]
 # 
@@ -56,15 +58,16 @@ acs_micro <- arrow::read_feather("C:/Users/morga/OneDrive - The Community Founda
 # dploy_example3 <- acs_micro %>%
 #   select(FIPS, race)
 # 
-# deplyr_example4 <- acs_micro %>%
+# dplyr_example4 <- acs_micro %>%
 #   select(FIPS, race) %>%   # Chopping down to columns!
 #   filter(FIPS == "21111")
 # 
 # 
 # disability_data[1:100,] %>% select(dis_physical)
 
-disability_data <- acs_micro %>%
- filter(year >= 2008, FIPS == "21111")
+# disability_data <- acs_micro %>%
+#  filter(year >= 2008, FIPS == "21111")
+
 ```
 
 ```{r clean_data, eval = FALSE}
@@ -181,7 +184,10 @@ disability_data %<>%
     OWNERSHP = replace(OWNERSHP, OWNERSHP == 0, NA),
     RENTGRS  = replace(RENTGRS, RENTGRS == 0 & OWNERSHP == 1, NA),
     
-    poverty = POVERTY < 100, 
+    poverty = case_when( 
+      POVERTY == -6 ~ NA, 
+      POVERTY < 100 ~ TRUE, 
+      POVERTY >= 100 ~ FALSE),
 
     homeownership = if_else(OWNERSHP == 1, T, F),
 
@@ -674,8 +680,6 @@ total_over_65_80 <- disability_data %>%
     pop_over_65 = sum(PERWT * over_65, na.rm = TRUE),
     pop_over_80 = sum(PERWT * over_80, na.rm = TRUE)
   )
-
-
 ```
 
 ```{r skip2, eval = FALSE}
@@ -698,6 +702,26 @@ total_over_65_80 <- disability_data %>%
 #                                          method = "bootstrap",
 #                                          breakdowns = "total")
 
+```
+
+```{r poverty_rates}
+# Poverty rate, any disability present in household vs not.
+load("interim_data/clean_disability_data.RData")
+
+overall_poverty <- disability_data %>%
+  summarise(overall_poverty = weighted.mean(poverty, HHWT, na.rm = TRUE))
+
+poverty_hh_dis <- disability_data %>%
+  # dis_any_4 = dis_physical + dis_selfcare + dis_vision + dis_hearing
+  filter(!is.na(any_dis_any_4)) %>%
+  group_by(any_dis_any_4) %>%
+  summarise(poverty = weighted.mean(poverty, HHWT, na.rm = TRUE))
+
+# Poverty rate, ambulatory disability present in household vs not. 
+poverty_hh_amb <- disability_data %>%
+  filter(!is.na(any_dis_physical)) %>%
+  group_by(any_dis_physical) %>%
+  summarise(poverty = weighted.mean(poverty, HHWT, na.rm = TRUE))
 ```
 
 # American Community Survey (ACS)
@@ -812,6 +836,7 @@ HH_prev <- household_dis %>%
                                   any_dis_cognitive = "Cognitive",
                                   any_dis_any = "Any")) %>%
   select(Disability_Type, Percent)
+
 
 save(HH_prev, file= "interim_data/HH_prev.Rdata")
 

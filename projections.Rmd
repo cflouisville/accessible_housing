@@ -40,7 +40,7 @@ MARKETVAL <- Current market value of unit
 
 #initialize funcs used throughout 
 w_pct <- function(x, w) {
-  weighted.mean(x, w, na.rm = TRUE) * 100
+  weighted.mean(x, w, na.rm = TRUE)
 }
 
 summarize_accessibility <- function(df) {
@@ -79,11 +79,9 @@ AHS_2019_micro <- read.csv("C:/Users/morga/OneDrive - The Community Foundation o
 # N or -6: Not applicable
 
 accessible_features <- AHS_2019_micro %>%
-  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL, HASUPP, WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER, HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME) %>%
+  select(NOSTEP, UNITFLOORS, HABATHENTRY, HABEDENTRY, HALIFT, HARAMP, WEIGHT, BLD, YRBUILT, MARKETVAL, HASUPP, WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER, HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME, HINCP, PERPOVLVL) %>%
   mutate(across(everything(), ~ as.integer(str_replace_all(str_trim(.), "'", "")))) %>%
   mutate(
-    any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1), 
-
     no_step = case_when(
       NOSTEP == 9 ~ NA, 
       NOSTEP == 1 ~ T,
@@ -120,8 +118,7 @@ accessible_features <- AHS_2019_micro %>%
     floors = case_when(
       UNITFLOORS == 1 ~ "1",
       UNITFLOORS == 2 ~ "2",
-      UNITFLOORS == 3 ~ "3 or more"
-    ),
+      UNITFLOORS == 3 ~ "3 or more"),
     
     SF = BLD %in% c(1, 2, 3), 
     MF = BLD %in% 4:9,
@@ -131,8 +128,7 @@ accessible_features <- AHS_2019_micro %>%
       YRBUILT %in% 1940:1950 ~ "built_1940_to_1959", 
       YRBUILT %in% 1960:1970 ~ "built_1960_to_1979", 
       YRBUILT %in% 1980:1990 ~ "built_1980_to_1999", 
-      YRBUILT >= 2000 ~ "built after 2000"
-    ), 
+      YRBUILT >= 2000 ~ "built after 2000"), 
     
     market_val = case_when( 
       MARKETVAL > 9000000  ~ "more_than_10M", 
@@ -143,20 +139,44 @@ accessible_features <- AHS_2019_micro %>%
       MARKETVAL %in% 300000:499999 ~ "between_300k_and_500k",
       MARKETVAL %in% 200000:299999 ~ "between_200k_and_300k",
       MARKETVAL %in% 100000:199999 ~ "between_100k_and_200k",
-      MARKETVAL <= 99999 ~ "less than 100k"
-      ), 
+      MARKETVAL <= 99999 ~ "less than 100k"), 
+    
+    income = case_when(
+      HINCP == -6 ~ NA_character_,
+      HINCP < 20000 ~ "Under 20k",
+      HINCP >= 20000 & HINCP < 50000 ~ "20k–49.9k",
+      HINCP >= 50000 & HINCP < 75000 ~ "50k–74.9k",
+      HINCP >= 75000 & HINCP < 100000 ~ "75k–99.9k",
+      HINCP >= 100000 & HINCP < 150000 ~ "100k–149.9k",
+      HINCP >= 150000 ~ "150k+",
+      TRUE ~ NA_character_),
+    
+    poverty = case_when(
+      PERPOVLVL == -6 ~ NA, 
+      PERPOVLVL < 100 ~ T, 
+      PERPOVLVL >= 100 ~ F), 
     
     HASUPP = case_when(
       HASUPP == -6 ~ NA, 
       HASUPP == -9 ~ NA, 
-      HASUPP %in% c(1,2,3,4,5) ~ HASUPP
-    ), 
-)
+      HASUPP %in% c(1,2,3,4,5) ~ HASUPP),
+    
+    across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
+      ~ case_when(.x == 1 ~ TRUE, .x == 2 ~ FALSE, .x %in% c(-6, -9) ~ NA, TRUE ~ NA)), 
+      
+    any_mob_dev = if_any(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER), ~ .x == TRUE),
+    any_chair   = if_any(c(WCHAIR, ECHAIR), ~ .x == TRUE), 
+    no_chair    = !(if_any(c(WCHAIR, ECHAIR), ~ .x == TRUE)))
+
+see_income<- accessible_features %>%
+  select(HINCP, income, poverty)
+
 save(accessible_features, file = "interim_data/accessible_features_hh.RData")
 #rm(AHS_2019_micro)
 ```
 
 ```{r accessibility_summary}
+load(file = "interim_data/accessible_features_hh.RData")
 library(readxl)
 library(dplyr)
 library(tidyr)
@@ -236,7 +256,22 @@ accessibility_by_yr_built_projections <- jeff_co_estimates_by_yr %>%
 rm(jeff_co_estimates_by_yr, accessibility_by_yr_built)
 ```
 
+```{r}
+poverty_and_wheelchair_use <- accessible_features %>%
+  #filter(!is.na(poverty), !is.na(any_chair)) %>%
+  group_by(any_chair) %>%
+  summarize(Poverty = weighted.mean(poverty, WEIGHT, na.rm = TRUE),
+             n = sum(WEIGHT, na.rm = TRUE))
+
+overall_poverty <- accessible_features %>%
+  summarise(overall_poverty = weighted.mean(poverty, WEIGHT, na.rm = TRUE))
+
+```
+
 ```{r summary_by_property_value}
+library(showtext)
+showtext_auto()
+font_add_google("Montserrat", "Montserrat")
 
 # no available property val var in ACS to project estimated units with 
 accessibility_by_property_val <- accessible_features %>%
@@ -246,25 +281,49 @@ accessibility_by_property_val <- accessible_features %>%
   summarize_accessibility() %>%
   ungroup()%>%
   mutate(market_val = market_val <- factor(c("more_than_10M", "between_5_and_9M", "between_1_and_5M", "between_750k_and_1M", "between_500k_and_750k", "between_300k_and_500k", "between_200k_and_300k", "between_100k_and_200k", "less than 100k")))
+
+
+income_levels <- c("Under 20k", "20k–49.9k","50k–74.9k", "75k–99.9k", "100k–149.9k", "150k+")
+
+mob_dev_by_hh_inc <- accessible_features %>%
+  filter(!is.na(income)) %>%
+  group_by(income) %>%
+  summarise(Any = weighted.mean(any_mob_dev, WEIGHT, na.rm = TRUE) *100, 
+              Cane = weighted.mean(CANE, WEIGHT, na.rm = TRUE)*100, 
+              `Powered Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
+              `Manual Wheelchair` = weighted.mean(WCHAIR, WEIGHT, na.rm = TRUE)*100, 
+            `Any Wheelchair` = weighted.mean(any_chair, WEIGHT, na.rm = TRUE) *100, 
+              `Other Mobility Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
+              Crutches = weighted.mean(CRUTCH, WEIGHT, na.rm = TRUE)*100
+              ) %>%
+  mutate(income = factor(income, levels = income_levels)) %>%
+  pivot_longer(Any:Crutches, names_to = "Mobility Device", values_to = "Percent") %>%
+  rename(`Income Group` = income)
+
+hh_income_mob_device <- ggplot(mob_dev_by_hh_inc, aes(x = `Mobility Device`, y = Percent, fill = `Income Group`)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Percent of Households Which include a Person Who Uses a Mobility Assistive Device by Income",
+    x = NULL, y = "Percent of Households"
+  ) +
+  scale_fill_manual(values = colors) +  
+ theme_minimal(base_family = "Montserrat", base_size = 22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat")
+  )
+
+  ggsave("interim_data/plots/accessibility_dev_by_income.png", plot= hh_income_mob_device)
+  print(hh_income_mob_device)
 ```
 
 ```{r mobility_device}
-
-#create flag for person who uses mobility device
-accessible_features %<>%
-  mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
-    ~ case_when(.x %in% c(-6, -9) ~ NA, TRUE ~ .x)
-  )) %>%
-  mutate(any_mob_dev = WCHAIR == 1 |ECHAIR == 1 | CANE == 1 | CRUTCH == 1 | MOBOTHER == 1) %>%
-  mutate(wechair_user = WCHAIR == 1  | ECHAIR == 1)
-
-
 #calculate % ppl who use mobility device 
 mob_dev_pct <- accessible_features %>%
   filter(!is.na(any_mob_dev)) %>%
   summarize(percent_mob_dev = w_pct(any_mob_dev, WEIGHT))
-
-#Electric Wheelchair vs Manual
+	
+#Powered Wheelchair vs Manual
 wchair_pct <- accessible_features %>%
   filter(!is.na(WCHAIR)) %>%
   summarise(wchair_pct = w_pct(WCHAIR == 1, WEIGHT)) # = 1.60573 %
@@ -272,6 +331,11 @@ wchair_pct <- accessible_features %>%
 echair_pct <- accessible_features %>%
   filter(!is.na(ECHAIR)) %>%
   summarise(echair_pct = w_pct(ECHAIR == 1, WEIGHT)) # = 	4.121627 %
+
+wechair_pct <- accessible_features%>%
+  filter(!is.na(any_chair)) %>%
+  summarise(any_chair_pct = weighted.mean(any_chair, WEIGHT)) 
+
 ```
 
 ```{r resident_ratings}
@@ -377,7 +441,7 @@ dig_dig_dig <- accessible_features %>%
 
 ```{r wheelchair_users_RR}
 wechair_satisfaction <- accessible_features %>%
-  filter(wechair_user, SF, HASUPP %in% c(4,5)) %>%
+  filter(any_chair, SF, HASUPP %in% c(4,5)) %>%
   select(HASUPP, no_step:market_val, -SF, -MF, WEIGHT) %>%
   summarise(
     pct_4_5 = mean(HASUPP %in% c(4,5), na.rm = TRUE)
@@ -389,7 +453,7 @@ pct_core_units_high_rating <- accessible_features %>%
       entry_bath == 1 & entry_bed == 1 |
       entry_bed == 1 & entry_bath == 1 & lift == 1
   ) %>%
-  filter(wechair_user == 1,core_accessibility_flag == TRUE) %>%
+  filter(any_chair == 1,core_accessibility_flag == TRUE) %>%
   summarise(pct_4_5 = mean(HASUPP %in% c(4, 5), na.rm = TRUE))
 
 hasupp_by_device <- accessible_features %>%
@@ -401,7 +465,7 @@ hasupp_by_device <- accessible_features %>%
   mutate(
     device_type = case_when(
       WCHAIR  == 1 ~ "Manual wheelchair",
-      ECHAIR  == 1 ~ "Electric wheelchair",
+      ECHAIR  == 1 ~ "Powered wheelchair",
       CANE    == 1 ~ "Cane",
       CRUTCH  == 1 ~ "Crutches",
       MOBOTHER == 1~ "Other Device", 
@@ -426,12 +490,9 @@ font_add_google("Montserrat", "Montserrat")
 
 # percentage of households that include at least one person that uses a mobility device (by device type)
 hh_devices <- accessible_features %>%
-  mutate(across(c(WCHAIR, ECHAIR, CANE, CRUTCH, MOBOTHER),
-    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
-  )) %>%
   summarise(Any = weighted.mean(any_mob_dev, WEIGHT, na.rm = TRUE) *100, 
             Cane = weighted.mean(CANE, WEIGHT, na.rm = TRUE)*100, 
-            `Electric Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
+            `Powered Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
             `Manual Wheelchair` = weighted.mean(WCHAIR, WEIGHT, na.rm = TRUE)*100,
             `Other Mobility Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
             Crutches = weighted.mean(CRUTCH, WEIGHT, na.rm = TRUE)*100
@@ -472,7 +533,7 @@ hh_room_difficulty <- accessible_features %>%
             Kitchen = weighted.mean(HAGETKIT, WEIGHT, na.rm = TRUE)*100, 
             Bathroom = weighted.mean(HAGETBATH, WEIGHT, na.rm = TRUE)*100, 
             Bedroom = weighted.mean(HAGETBED, WEIGHT, na.rm = TRUE)*100) %>%
-    pivot_longer(cols = Any:Bedroom, names_to = "Area of House", values_to = "Percent")
+  pivot_longer(cols = Any:Bedroom, names_to = "Area of House", values_to = "Percent")
 
 plot2 <- ggplot(hh_room_difficulty, aes(x = `Area of House`, y = Percent)) +
   geom_col(fill = "#f60", width = .5) +
@@ -493,6 +554,37 @@ print(plot2)
 
 ggsave("interim_data/plots/hh_diff.png", plot= plot2)
 
+hh_room_difficulty_wheelchair <- accessible_features %>%
+  mutate(across(c(HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME), 
+    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
+  )) %>%
+  filter(any_chair) %>%
+  mutate(any_hh_diff = HAGETKIT == 1 | HAGETBATH == 1| HAGETBED == 1 | HAGETHOME == 1) %>%
+  summarise(Any = weighted.mean(any_hh_diff, WEIGHT, na.rm = TRUE)*100,
+            Entry = weighted.mean(HAGETHOME, WEIGHT, na.rm = TRUE)*100, 
+            Kitchen = weighted.mean(HAGETKIT, WEIGHT, na.rm = TRUE)*100, 
+            Bathroom = weighted.mean(HAGETBATH, WEIGHT, na.rm = TRUE)*100, 
+            Bedroom = weighted.mean(HAGETBED, WEIGHT, na.rm = TRUE)*100) %>%
+  pivot_longer(cols = Any:Bedroom, names_to = "Area of House", values_to = "Percent")
+
+plot4 <- ggplot(hh_room_difficulty_wheelchair, aes(x = `Area of House`, y = Percent)) +
+  geom_col(fill = "#f60", width = .5) +
+  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+            vjust = -0.5, size = 6) +
+  labs(
+    title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
+    subtitle = "For homes with at least one person who uses a wheelchair", 
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+ theme_minimal(base_family = "Montserrat",base_size =  22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
+  )
+print(plot4)
+
+ggsave("interim_data/plots/hh_diff_wchair.png", plot= plot4)
 
 # For ALL homes, what percent report difficulty accessing parts of their home
 hh_room_difficulty_ALL <- accessible_features %>%
