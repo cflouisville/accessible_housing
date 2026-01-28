@@ -16,7 +16,7 @@ NUNITS = Number of living units in building (1-997)
 NUNIT2 = Structure type
 CANE = Someone in household uses a cane or walker
 CRUTCH = Someone in household uses crutches
-ECHAIR = Someone in the household uses an electric wheelchair, cart, or scooter
+ECHAIR = Someone in the household uses an powered wheelchair, cart, or scooter
 WCHAIR = Someone in the household uses a manual wheelchair
 HDSB = Household has a disabled person
 STAIRS = stairs in unit
@@ -103,5 +103,9 @@ accessible_features_2011 <- AHS_2011_micro %>%
       TRUE ~ FALSE
     )
   )
+
+strict_accessibility <- accessible_features_2011 %>%
+  filter(SF) %>%
+  summarise(wchair_accessible = weighted.mean(wheelchair_accessible, WEIGHT, na.rm = TRUE))
 
 ```
