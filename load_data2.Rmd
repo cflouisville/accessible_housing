@@ -1755,7 +1755,44 @@ ggsave("interim_data/plots/hh_diff.png", plot= plot2)
 
 ```
 
+### Households Including a Person Who Uses a Wheelchair 
+
+```{r}
+hh_room_difficulty_wheelchair <- accessible_features %>%
+  mutate(across(c(HAGETKIT, HAGETBED, HAGETBATH, HAGETHOME), 
+    ~ case_when(.x == 1 ~ TRUE, .x %in% c(-6, -9) ~ NA, .x == 2 ~ FALSE, TRUE ~ NA)
+  )) %>%
+  filter(any_chair) %>%
+  mutate(any_hh_diff = HAGETKIT == 1 | HAGETBATH == 1| HAGETBED == 1 | HAGETHOME == 1) %>%
+  summarise(Any = weighted.mean(any_hh_diff, WEIGHT, na.rm = TRUE)*100,
+            Entry = weighted.mean(HAGETHOME, WEIGHT, na.rm = TRUE)*100, 
+            Kitchen = weighted.mean(HAGETKIT, WEIGHT, na.rm = TRUE)*100, 
+            Bathroom = weighted.mean(HAGETBATH, WEIGHT, na.rm = TRUE)*100, 
+            Bedroom = weighted.mean(HAGETBED, WEIGHT, na.rm = TRUE)*100) %>%
+  pivot_longer(cols = Any:Bedroom, names_to = "Area of House", values_to = "Percent")
+
+plot4 <- ggplot(hh_room_difficulty_wheelchair, aes(x = `Area of House`, y = Percent)) +
+  geom_col(fill = "#f60", width = .5) +
+  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+            vjust = -0.5, size = 6) +
+  labs(
+    title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
+    subtitle = "For homes with at least one person who uses a wheelchair", 
+    x = NULL,
+    y = "Percent of Population"
+  ) +
+ theme_minimal(base_family = "Montserrat",base_size =  22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust= 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat"),
+  )
+print(plot4)
+
+ggsave("interim_data/plots/hh_diff_wchair.png", plot= plot4)
+```
+
 ### All Households
+
 ```{r}
 
 # For ALL homes, what percent report difficulty accessing parts of their home
