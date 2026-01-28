@@ -180,6 +180,8 @@ disability_data %<>%
     OWNCOST  = replace(OWNCOST, OWNCOST == 99999, NA),
     OWNERSHP = replace(OWNERSHP, OWNERSHP == 0, NA),
     RENTGRS  = replace(RENTGRS, RENTGRS == 0 & OWNERSHP == 1, NA),
+    
+    poverty = POVERTY < 100, 
 
     homeownership = if_else(OWNERSHP == 1, T, F),
 
@@ -1672,7 +1674,7 @@ print(plot_summary)
 # American Housing Survey (AHS)
 ## Household Level Accessibility Estimates
 
-For Jefferson County, the number of households that include at least one person who uses any mobility assistive device is estimated to be 43,517, and around 18,031 include at least one person with either a manual or electric wheelchair. 
+For Jefferson County, the number of households that include at least one person who uses any mobility assistive device is estimated to be 43,517, and around 18,031 include at least one person with either a manual or powered wheelchair. 
 
 ```{r household_accessibility_devices}
 library(showtext)
@@ -1685,7 +1687,7 @@ load(file = "interim_data/accessible_features_hh.RData")
 hh_devices <- accessible_features %>%
   summarise(Any = weighted.mean(any_mob_dev, WEIGHT, na.rm = TRUE) *100, 
             Cane = weighted.mean(CANE, WEIGHT, na.rm = TRUE)*100, 
-            `Electric Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
+            `Powered Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
             `Manual Wheelchair` = weighted.mean(WCHAIR, WEIGHT, na.rm = TRUE)*100,
             `Other Mobility Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
             Crutches = weighted.mean(CRUTCH, WEIGHT, na.rm = TRUE)*100
@@ -1755,7 +1757,7 @@ ggsave("interim_data/plots/hh_diff.png", plot= plot2)
 
 ```
 
-### Households Including a Person Who Uses a Wheelchair 
+<!-- ### Households Including a Person Who Uses a Wheelchair  -->
 
 ```{r}
 hh_room_difficulty_wheelchair <- accessible_features %>%
