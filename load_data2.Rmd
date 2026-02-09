@@ -117,7 +117,10 @@ disability_data %<>%
       DIFFREM == 1 ~ F, 
       DIFFREM == 2 ~ T),
     
-    # Vision or hearing difficulty (DIFFSENS) not included for now 
+    dis_sensory = case_when(
+      DIFFSENS ==0 ~ NA, 
+      DIFFSENS == 1 ~ F,
+      DIFFSENS == 2 ~T),
     
     # Any disabling condition
     # @Morgan switching up the syntax for funsies :)
@@ -125,6 +128,7 @@ disability_data %<>%
     dis_any = if_else((dis_physical + dis_independent + dis_selfcare + dis_vision + dis_hearing + dis_cognitive) > 0, T, F),
     
     dis_any_4 = if_else((dis_physical + dis_selfcare + dis_vision + dis_hearing) > 0, T, F),
+
     
     # RECODE OTHER CATEGORY VARIABLES
     # Age group- Not sure how many buckets I want, so I make two versions! We will see what provides meaningful information, and how deep we can disaggregate before the data becomes to noisy.
@@ -225,8 +229,10 @@ disability_data %<>%
     any_dis_vision      = if_else(any(dis_vision), T, F),
     any_dis_hearing     = if_else(any(dis_hearing), T, F),
     any_dis_cognitive   = if_else(any(dis_cognitive), T, F), 
+    any_dis_sensory     = if_else(any(dis_sensory), T, F), 
     any_dis_any         = if_else(any(dis_any), T, F), #@MB lol at this naming convention :)
     any_dis_any_4       = if_else(any(dis_any_4), T, F)) %>%
+
   ungroup() 
 
 #@MB saving 
@@ -254,6 +260,7 @@ individual_dis_selfcare    <- survey_by_demog(disability_data, "dis_selfcare",  
 individual_dis_vision      <- survey_by_demog(disability_data, "dis_vision",      "PERWT")
 individual_dis_hearing     <- survey_by_demog(disability_data, "dis_hearing",     "PERWT")
 individual_dis_cognitive   <- survey_by_demog(disability_data, "dis_cognitive",   "PERWT")
+individual_dis_sensory     <- survey_by_demog(disability_data, "dis_sensory",     "PERWT")
 individual_dis_any         <- survey_by_demog(disability_data, "dis_any",         "PERWT")
 
 # Combine data frames
@@ -270,6 +277,7 @@ individual_dis <- bind_df(individual_dis_physical,
                           individual_dis_vision,
                           individual_dis_hearing,
                           individual_dis_cognitive, 
+                          indivisual_dis_sensory,
                           individual_dis_any)
 
 # Clean up the environment
@@ -280,7 +288,7 @@ rm(individual_dis_physical, individual_dis_independent, individual_dis_selfcare,
 # @MB turns out I DID write this code to let us group by other variables! Lit.
 # Physical disability X age, income, and homeownership X race and sex
 
-individual_dis_age_3 <- survey_by_demog(disability_data, 
+individual_dis_age_3     <- survey_by_demog(disability_data, 
                                         "dis_physical", 
                                         "PERWT", 
                                         other_grouping_vars = "age_group_3")
@@ -290,17 +298,22 @@ individual_dis_any_age_3 <- survey_by_demog(disability_data,
                                         "PERWT", 
                                         other_grouping_vars = "age_group_3")
 
-individual_dis_age_4 <- survey_by_demog(disability_data, 
+individual_dis_age_4     <- survey_by_demog(disability_data, 
                                         "dis_physical", 
                                         "PERWT", 
                                         other_grouping_vars = "age_group_4")
 
-individual_dis_age_9 <- survey_by_demog(disability_data, 
+individual_dis_age_9     <- survey_by_demog(disability_data, 
                                         "dis_physical", 
                                         "PERWT", 
                                         other_grouping_vars = "age_group_9")
 
-individual_dis_income <- survey_by_demog(disability_data, 
+individual_dis_any_age_4       <- survey_by_demog(disability_data, 
+                                            "dis_any_4", 
+                                            "PERWT", 
+                                            other_grouping_vars = "age_group_4") 
+
+individual_dis_income    <- survey_by_demog(disability_data, 
                                          "dis_physical", 
                                          "PERWT", 
                                          other_grouping_vars = "income_group")
@@ -342,6 +355,7 @@ household_dis_selfcare    <- survey_by_demog(disability_data_hh, "any_dis_selfca
 household_dis_vision      <- survey_by_demog(disability_data_hh, "any_dis_vision",      "HHWT", breakdowns = "total") 
 household_dis_hearing     <- survey_by_demog(disability_data_hh, "any_dis_hearing",     "HHWT", breakdowns = "total") 
 household_dis_cognitive   <- survey_by_demog(disability_data_hh, "any_dis_cognitive",   "HHWT", breakdowns = "total")
+household_dis_sensory     <- survey_by_demog(disability_data_hh, "any_dis_sensory",     "HHWT", breakdowns = "total")
 household_dis_any         <- survey_by_demog(disability_data_hh, "any_dis_any",         "HHWT", breakdowns = "total") 
 household_dis_any_4       <- survey_by_demog(disability_data_hh, "any_dis_any_4", "HHWT", 
                                              breakdowns = "total")
@@ -958,6 +972,8 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
 
 ### Ambulatory Disability and Race (by Age)
 ```{r}
+#can change to wider disability group > physical, self care, vision, hearing
+
 colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
 
 dis_race_age <- individual_dis_age_4 %>%
