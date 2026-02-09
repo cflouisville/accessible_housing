@@ -322,6 +322,7 @@ income_and_hearing <- survey_by_demog(disability_data,
                                          "PERWT", 
                                          other_grouping_vars = "income_group")
 
+
                                         
 
 # What percentage of Louisville households include a person with a disability?
@@ -372,6 +373,7 @@ household_dis_homeownership <- survey_by_demog(disability_data_hh,
                                                "HHWT", 
                                                other_grouping_vars = "homeownership",
                                                breakdowns = "total")
+
 
 ## of households that include someone with an ambulatory, self-care, visual, or auditory disability.
 num_hh <- household_dis %>%
@@ -696,7 +698,7 @@ total_over_65_80 <- disability_data %>%
 
 # I am largely unable to follow my own code to create bootstrap weights at this point. It uses the map_ functions, which are a part of the purrr package of the tidyverse. The map_ functions can typically replace for loops in R, offer performance benefits, and allow you to write shorter code. However, they come with a level of incredible complexity that I can't follow any more. You're doing a lot "behind the curtain" kind of like you can do with group_by() %>% summarize(), but it extends beyond doing simple math on each individual group and extends it to more complex operations.
 
-# individual_disability <- survey_by_demog(filter(disability_data, year == 2023), 
+# individual_disability <- survey_by_demog(filter(disability_data, year == 2024), 
 #                                          "dis_physical", 
 #                                          "PERWT",
 #                                          method = "bootstrap",
@@ -704,9 +706,9 @@ total_over_65_80 <- disability_data %>%
 
 ```
 
-```{r poverty_rates}
+```{r poverty_rates,eval=FALSE}
 # Poverty rate, any disability present in household vs not.
-load("interim_data/clean_disability_data.RData")
+#load(file = "data/acs_micro_subset_2024.RData")
 
 overall_poverty <- disability_data %>%
   summarise(overall_poverty = weighted.mean(poverty, HHWT, na.rm = TRUE))
@@ -761,7 +763,7 @@ kable(defs, "html", escape = FALSE, col.names = c("Variable", "Description")) %>
 
 </details>
 
-## Trends Across Demographics (2023)
+## Trends Across Demographics (2024)
 
 ### Overall {.tabset}
 
@@ -777,7 +779,7 @@ showtext_auto()
 # chart 1 -> prevalence of disabilities by type
 # only most recent year (can change)
 dis_prev_by_type <- individual_dis %>%
-  filter(year ==2023, var_type == "percent", sex == "total", race == "total") %>%
+  filter(year ==2024, var_type == "percent", sex == "total", race == "total") %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -800,7 +802,7 @@ plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   geom_text(aes(label = paste0(Percent, "%")), 
             vjust = -0.5, size = 6) +
   labs(
-    title = "Prevalence of Disabilities by Type (2023)",
+    title = "Prevalence of Disabilities by Type (2024)",
     x = NULL,
     y = "Percent of Population"
   ) +
@@ -823,7 +825,7 @@ showtext_auto()
 
 
 HH_prev <- household_dis %>%
-  filter(year == 2023, var_type == "percent") %>%
+  filter(year == 2024, var_type == "percent") %>%
   pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_cognitive, any_dis_hearing, any_dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -839,14 +841,14 @@ HH_prev <- household_dis %>%
 
 
 save(HH_prev, file= "interim_data/HH_prev.Rdata")
-
+	
 HH_prev$Percent <- round(HH_prev$Percent, 2)
 
 HH_prev_plot <- ggplot(HH_prev, aes(x = Disability_Type, y = Percent)) +
   geom_col(fill = "#f60", width = .5) +
   geom_text(aes(label = paste0(Percent, "%")), vjust = -0.5, size = 6) +
   labs(
-    title = "Households with a Person with a Disability by Type (2023)", 
+    title = "Households with a Person with a Disability by Type (2024)", 
     subtitle = "Household Level", 
     x = NULL,
     y = "Percent of Households"
@@ -870,7 +872,7 @@ colors <- c("#f60", "#FFCCC2")
 
   #clean table- extract relevant columns, values 
 dis_by_sex <- individual_dis %>%
-  filter(year ==2023, var_type == "percent", sex != "total", race == "total") %>%
+  filter(year ==2024, var_type == "percent", sex != "total", race == "total") %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -892,7 +894,7 @@ dis_by_sex <- individual_dis %>%
 plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +  # fill says split x category by sex
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Sex (2023)",
+    title = "Disabilities Breakdown by Sex (2024)",
     x = NULL,
     y = "Percent of Population"
   ) +
@@ -916,7 +918,7 @@ colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
 
   #clean table
 dis_by_race <- individual_dis %>%
-  filter(year == 2023, var_type == "percent", race != "total", sex == "total") %>%
+  filter(year == 2024, var_type == "percent", race != "total", sex == "total") %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -937,10 +939,10 @@ dis_by_race <- individual_dis %>%
   rename(Race = race)
 
   #make chart
-plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race)) +  # fill says split x category by sex
+plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race)) +  # fill says split x category by Race
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Race (2023)",
+    title = "Disabilities Breakdown by Race (2024)",
     x = NULL, y = "Percent of Population"
   ) +
   scale_fill_manual(values = colors) +  
@@ -952,6 +954,34 @@ plot3 <- ggplot(dis_by_race, aes(x = Disability_Type, y = Percent, fill = Race))
 
   ggsave("interim_data/plots/dis_by_race.png", plot= plot3)
   print(plot3)
+```
+
+### Ambulatory Disability and Race (by Age)
+```{r}
+colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
+
+dis_race_age <- individual_dis_age_4 %>%
+  filter(year == 2024, var_type == "percent", sex == "total", !is.na(age_group_4), race != "total") %>%
+  mutate(race = recode(race, 
+                      white = "White", black = "Black", hispanic = "Hispanic", other= "Not Listed" )) %>% 
+  rename(Age = age_group_4, Race = race, Percent = dis_physical)
+
+plot_race_age <- ggplot(dis_race_age, aes(x = Race, y = Percent, fill = Age)) +  # fill says split x category by this category
+  geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
+  labs(
+    title = "Disabilities Breakdown by Age- 50+ (2024)",
+    x = NULL, y = "Percent of Population"
+  ) +
+  scale_fill_manual(values = colors) +  
+ theme_minimal(base_family = "Montserrat", base_size = 22) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1, family = "Montserrat"),
+    plot.title = element_text(face = "bold", size = 26, family = "Montserrat")
+  )
+
+  #ggsave("interim_data/plots/dis_by_age_5yr.png", plot= plot5yr)
+  print(plot_race_age)
+
 ```
 
 ### Own vs. Rent {.tabset}
@@ -966,7 +996,7 @@ colors <- c("#f60", "#FFCCC2")
 
 #clean it
 dis_by_own <- homeownership_all %>%
-  filter(year == 2023, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
+  filter(year == 2024, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -988,7 +1018,7 @@ dis_by_own <- homeownership_all %>%
 plot6 <- ggplot(dis_by_own, aes(x = Disability_Type, y = Percent, fill = Homeownership)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Homeownership (2023)",
+    title = "Disabilities Breakdown by Homeownership (2024)",
     x = NULL, y = "Percent of Population"
   ) +
   scale_fill_manual(values = colors) +  
@@ -1013,7 +1043,7 @@ colors <- c("#f60", "#FFCCC2")
 
 #clean it
 hh_dis_by_own <- hh_homeownership_all %>%
-  filter(year == 2023, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
+  filter(year == 2024, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -1035,7 +1065,7 @@ hh_dis_by_own <- hh_homeownership_all %>%
 hh_own_rent <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = Homeownership)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Homeownership (2023)",
+    title = "Disabilities Breakdown by Homeownership (2024)",
     subtitle = "Household Level", 
     x = NULL, y = "Percent of Households"
   ) +
@@ -1062,7 +1092,7 @@ colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
 
 #clean it
 dis_by_income <- income_all %>%
-  filter(year == 2023, var_type == "percent", sex == "total", race == "total") %>%
+  filter(year == 2024, var_type == "percent", sex == "total", race == "total") %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -1080,7 +1110,7 @@ rename("Income Group" = income_group)
 plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Income Group`)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Income (2023)",
+    title = "Disabilities Breakdown by Income (2024)",
     x = NULL, y = "Percent of Population"
   ) +
   scale_fill_manual(values = colors) +  
@@ -1105,7 +1135,7 @@ colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
 
 #clean it
 hh_dis_by_own <- hh_income_all %>%
-  filter(year == 2023, var_type == "percent", sex == "total", race == "total", !is.na(income_group)) %>%
+  filter(year == 2024, var_type == "percent", sex == "total", race == "total", !is.na(income_group)) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
@@ -1125,7 +1155,7 @@ hh_dis_by_own <- hh_income_all %>%
 hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = `Income Group`)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Income (2023)",
+    title = "Disabilities Breakdown by Income (2024)",
     subtitle = "Household Level", 
     x = NULL, y = "Percent of Households"
   ) +
@@ -1153,7 +1183,7 @@ colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
 
 #clean table
 dis_by_age <- age_all %>%
-  filter(year == 2023, sex == "total", race == "total", var_type == "percent",!is.na(age_group_4)) %>%
+  filter(year == 2024, sex == "total", race == "total", var_type == "percent",!is.na(age_group_4)) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>% 
@@ -1171,7 +1201,7 @@ dis_by_age <- age_all %>%
 plot5 <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Age (2023)",
+    title = "Disabilities Breakdown by Age (2024)",
     x = NULL, y = "Percent of Population"
   ) +
   scale_fill_manual(values = colors) +  
@@ -1195,7 +1225,7 @@ colors <- colorRampPalette(c("#FFCCC2", "#cc3f14"))(9)
 
 #clean table
 dis_by_age <- age_all_5 %>%
-  filter(year == 2023, sex == "total", race == "total", var_type == "percent",!is.na(age_group_5_yrs)) %>%
+  filter(year == 2024, sex == "total", race == "total", var_type == "percent",!is.na(age_group_5_yrs)) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
                names_to = "Disability_Type", 
                values_to = "Percent") %>% 
@@ -1212,7 +1242,7 @@ dis_by_age <- age_all_5 %>%
 plot5yr <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
-    title = "Disabilities Breakdown by Age- 50+ (2023)",
+    title = "Disabilities Breakdown by Age- 50+ (2024)",
     x = NULL, y = "Percent of Population"
   ) +
   scale_fill_manual(values = colors) +  
@@ -1226,7 +1256,7 @@ plot5yr <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age))
   print(plot5yr)
 ```
 
-## Trends Over Time (2008-2023)
+## Trends Over Time (2008-2024)
 
 *Note missing data for the year 2020*
 
@@ -1258,7 +1288,7 @@ library(ggrepel)
 grid_lines_y <- tibble(
   y = seq(0, max(dis_prev_by_type_over_time$Percent), by = 2.5),
   x1 = min(dis_prev_by_type_over_time$year),
-  x2 = 2023
+  x2 = 2024
 )
 
 last_points <- dis_prev_by_type_over_time %>%
@@ -1270,7 +1300,7 @@ last_points <- dis_prev_by_type_over_time %>%
 
 plot_overall_time <- ggplot(dis_prev_by_type_over_time, aes(x = year, y = Percent, color = Disability_Type, group = Disability_Type)) +
   geom_segment(
-    data = tibble(x = seq(min(dis_prev_by_type_over_time$year), 2023, by = 1),
+    data = tibble(x = seq(min(dis_prev_by_type_over_time$year), 2024, by = 1),
                   y1 = 0,
                   y2 = max(dis_prev_by_type_over_time$Percent)),
     aes(x = x, xend = x, y = y1, yend = y2),
@@ -1278,7 +1308,7 @@ plot_overall_time <- ggplot(dis_prev_by_type_over_time, aes(x = year, y = Percen
     color = "grey91",
     size = 0.4
 ) + geom_segment(
-  data = tibble(x = seq(min(dis_prev_by_type_over_time$year), 2023, by = 2),
+  data = tibble(x = seq(min(dis_prev_by_type_over_time$year), 2024, by = 2),
                   y1 = 0,
                   y2 = max(dis_prev_by_type_over_time$Percent)),
     aes(x = x, xend = x, y = y1, yend = y2),
@@ -1782,7 +1812,7 @@ ggsave("interim_data/plots/hh_diff.png", plot= plot2)
 
 ```
 
-<!-- ### Households Including a Person Who Uses a Wheelchair  -->
+### Households Including a Person Who Uses a Wheelchair
 
 ```{r}
 hh_room_difficulty_wheelchair <- accessible_features %>%
