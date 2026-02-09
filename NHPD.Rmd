@@ -342,16 +342,18 @@ merged_all <- bind_rows(final_matches, from_KHC, from_NHPD) %>%
 ```
 
 ```{r}
-# identify accessible units in KHC
+# make df of accessible unit counts in KHC
 khc_acc_units <- KHC %>%
   filter(str_to_lower(`Unit Type`) %in% c("mobility impaired", "physical disabilities")) %>%
   mutate(acc_units = Units) %>%
-  rename(khc_development_name = `Development Name`) %>%
-  select(khc_development_name, acc_units)
+  mutate(total_5_percent = floor(`Total Units`*.05)) %>%
+  rename(khc_development_name = `Development Name`)
+  #select(khc_development_name, acc_units)
 
-# #all units classified as "disabled" or "elderly" or 
+#units classified as "disabled" or "elderly" from NHPD + KHC Accessible 
 mf_accessible_estimates_elderly_disabled <- merged_all %>%
   left_join(khc_acc_units, by = "khc_development_name") %>%
+  #prefer NHPD = 5711, prefer KHC = 4942 (total accessible count)
   mutate(accessible_units = case_when(
     str_to_lower(target_tenant_type) %in% c("disabled", "elderly or disabled", "elderly") ~ nhpd_units,
     !is.na(acc_units) ~ acc_units, 
@@ -360,7 +362,8 @@ mf_accessible_estimates_elderly_disabled <- merged_all %>%
   distinct(khc_development_name, accessible_units) %>%
   summarise(total_accessible_units = sum(accessible_units, na.rm = TRUE))
 
-#all other units (take 5% b/c federally funded)
+#all other units (5% b/c federally funded)
+# TODO check date 
 mf_accessible_estimates_general <- merged_all %>%
   left_join(khc_acc_units, by = "khc_development_name") %>%
   filter(target_tenant_type %not_in% c("Disabled", "Elderly or disabled", "Elderly", "Eldery or Disabled") | !is.na(acc_units)) %>%
@@ -370,6 +373,16 @@ total_estimate <- as.integer(mf_accessible_estimates_elderly_disabled[1]) + as.i
 
 total_estimate
 
+```
+
+```{r sensory_units}
+
+sensory_units <- merged_all %>%
+  mutate(final_units = pmin(nhpd_units, khc_units, na.rm = TRUE))
+
+#612
+sens_units <- floor(as.integer(sum(sensory_units$final_units, na.rm = TRUE))*.02)
+  
 ```
 
 
