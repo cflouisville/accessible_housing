@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FA
 
 ```{r clean_data}
 library(writexl)
-lou_projections <- read_excel("C:/Users/morga/OneDrive - The Community Foundation of Louisville, Inc/data/Population-Projections-by-Sex-and-Five-Year-Age-Group.xlsx")
+lou_projections <- read_excel("data/Population-Projections-by-Sex-and-Five-Year-Age-Group.xlsx")
 
 #percent population over 65, estimate number of poeple over 65
 # proj_65_plus <- lou_projections %>% 
@@ -68,6 +68,10 @@ age_65_over_dis <- individual_dis_age_3 %>%
   filter(race =="total", sex == "total", var_type == "percent", age_group_3 == "65+") %>%
   select(year, age_group_3, dis_physical)
 
+age_65_over_dis_any <- individual_dis_any_age_3 %>%
+  filter(race =="total", sex == "total", var_type == "percent", age_group_3 == "65+") %>%
+  select(year, age_group_3, dis_any)
+
 age_80_over_dis <- individual_dis_age_4 %>%
   filter(race =="total", sex == "total", var_type == "percent", age_group_4 == "80 or Older") %>%
   select(year, age_group_4, dis_physical) 
@@ -76,10 +80,16 @@ age_80_over_dis <- individual_dis_age_4 %>%
 avg_dis_percent_80 <- mean(age_80_over_dis$dis_physical)/100
 # avg = 26.74667 most recent = 24.52830
 avg_dis_percent_65 <- mean(age_65_over_dis$dis_physical)/100
+avg_dis_percent_65_any <- mean(age_65_over_dis_any$dis_any)/100
 
 #multiply avg percent adults above x age (from acs) w dis by total pop over x age estimates (from lou estimates - U of L)
 proj_65_plus <- proj_65_plus %>%
   mutate(estimated_pop_with_phys_dis = over_65*avg_dis_percent_65)
+
+proj_65_plus_any <- proj_65_plus %>%
+  mutate(estimated_pop_with_phys_dis = over_65*avg_dis_percent_65_any, 
+         rate_increase = (Total - 798459) / 798459 * 100)
+
 proj_80_plus <- proj_80_plus %>%
   mutate(estimated_pop_with_phys_dis = over_80*avg_dis_percent_80)
 ```
