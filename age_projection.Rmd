@@ -192,6 +192,58 @@ proj_80_plus %<>%
 
 ![](./interim_data/plots/plot_projected_80_plus.png)
 
+```{r}
+
+
+# Create a data frame of population projections 
+pop_projections <- lou3 %>%
+  mutate(
+    AGEGRP = case_when(
+      AGEGRP %in% 1:10 ~ "Under 50",
+      AGEGRP %in% 11:13 ~ "50-64",
+      AGEGRP %in% 14:16 ~ "65-80",
+      AGEGRP %in% 17:18 ~ "80 or Older")) %>%
+  select(AGEGRP:N2050) %>%
+  pivot_longer(N2025:N2050) %>%
+  transmute(
+    age_group = AGEGRP,
+    year = as.numeric(str_sub(name, 2, 5)),
+    value = value) %>%
+  group_by(age_group, year) %>%
+  reframe(
+    population = sum(value))
+
+# Get current rates of disability by age group
+dis_estimates <- individual_dis_age_4 %>%
+  filter(year == 2024, sex == "total", race == "total", var_type == "percent") %>%
+  select(age_group_4, dis_physical)
+
+# Join the estimates and calculate counts and percents of disability going forward
+dis_projections <- pop_projections %<>%
+  left_join(dis_estimates, by = c("age_group" = "age_group_4"))
+
+dis_projections %<>%
+  mutate(estimate = population * dis_physical / 100)
+
+dis_projections %<>%
+  group_by(year) %>%
+  reframe(
+    estimate = sum(estimate),
+    population = sum(population))
+
+actual_data <- individual_dis %>%
+  filter(sex == "total", race == "total", var_type %in% c("estimate", "population")) %>%
+  pivot_vartype_wider(dis_physical) %>%
+  select(year, estimate, population)
+
+disability_projections <- bind_rows(actual_data, dis_projections)
+
+disability_projections %<>%
+  mutate(percent = estimate / population * 100)
+
+
+```
+
 <!-- 2019: 
 NOSTEP: Flag indicating unit's entrance is accessible without climbing up or down any stairs
 CANE: Flag indicating someone in the household  uses a cane or walker
