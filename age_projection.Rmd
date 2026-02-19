@@ -218,7 +218,7 @@ dis_estimates <- individual_dis_age_4 %>%
   filter(year == 2024, sex == "total", race == "total", var_type == "percent") %>%
   select(age_group_4, dis_physical)
 
-# Join the estimates and calculate counts and percents of disability going forward
+# Join the estimates, calculate counts of disability going forward
 dis_projections <- pop_projections %<>%
   left_join(dis_estimates, by = c("age_group" = "age_group_4"))
 
@@ -231,10 +231,13 @@ dis_projections %<>%
     estimate = sum(estimate),
     population = sum(population))
 
+# Add in data for 2008-2024
+
 actual_data <- individual_dis %>%
   filter(sex == "total", race == "total", var_type %in% c("estimate", "population")) %>%
-  pivot_vartype_wider(dis_physical) %>%
-  select(year, estimate, population)
+  select(year, var_type, dis_physical) %>%
+  pivot_wider(names_from = var_type, 
+              values_from = dis_physical) 
 
 disability_projections <- bind_rows(actual_data, dis_projections)
 
