@@ -17,6 +17,7 @@ knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = e
 
 library(showtext)
 library(glptools)
+library(openxlsx)
 glp_load_packages(T)
 
 font_add_google("Montserrat", "Montserrat")
@@ -322,7 +323,7 @@ dis_vars <- c("dis_physical", "dis_independent", "dis_selfcare", "dis_vision", "
 df <- individual_dis %>%
   filter(sex == "total", var_type %in% c("estimate", "population")) %>%
   select(-FIPS, -sex) %>%
-  pivot_longer(dis_physical:dis_any) %>%
+  pivot_longer(dis_physical:dis_sensory) %>%
   pivot_wider(names_from = var_type, values_from = value)
 
 df %<>%
@@ -420,12 +421,13 @@ household_dis <- bind_df(household_dis_physical,
                          household_dis_vision,
                          household_dis_hearing,
                          household_dis_cognitive,
+                         household_dis_sensory,
                          household_dis_any_4,
                          household_dis_any)
 
 # Clean up the environment
 rm(household_dis_physical, household_dis_independent, household_dis_selfcare, household_dis_vision,
-   household_dis_hearing, household_dis_cognitive, household_dis_any)
+   household_dis_hearing, household_dis_sensory, household_dis_cognitive, household_dis_any)
 
 #@MB note HHWT rather than PERWT 
 
@@ -477,6 +479,8 @@ income_and_cognitive <- survey_by_demog(disability_data, "dis_cognitive", "PERWT
                                         other_grouping_vars = "income_group")
 income_and_any <- survey_by_demog(disability_data, "dis_any", "PERWT",  
                                   other_grouping_vars = "income_group")
+income_and_sensory <- survey_by_demog(disability_data, "dis_sensory", "PERWT",  
+                                  other_grouping_vars = "income_group")
 
 income_all <- income_and_hearing %>%
   bind_df(
@@ -486,11 +490,12 @@ income_all <- income_and_hearing %>%
     income_and_any,
     income_and_cognitive,
     income_and_selfcare,
+    income_and_sensory,
     by = c("FIPS", "year", "sex", "race", "var_type", "income_group")
   )
 
 #cleanup
-rm(income_and_any, income_and_hearing, income_and_independent, income_and_physical, income_and_selfcare, income_and_cognitive, income_and_vision)
+rm(income_and_any, income_and_hearing, income_and_independent, income_and_physical, income_and_selfcare, income_and_cognitive, income_and_vision, income_and_sensory)
 
 income_all <- income_all %>%
   mutate(income_group = factor(income_group, levels = c("Under 20k", "20k–49.9k","50k–74.9k", "75k–99.9k", "100k–149.9k", "150k+")))
@@ -512,6 +517,8 @@ homeownership_dis_hearing <- survey_by_demog(disability_data, "dis_hearing", "PE
                                       other_grouping_vars = "homeownership")
 homeownership_dis_cognitive <- survey_by_demog(disability_data, "dis_cognitive", "PERWT", 
                                       other_grouping_vars = "homeownership")
+homeownership_dis_sensory  <- survey_by_demog(disability_data, "dis_sensory", "PERWT", 
+                                              other_grouping_vars = "homeownership")
 homeownership_dis_any <- survey_by_demog(disability_data, "dis_any", "PERWT",  
                                   other_grouping_vars = "homeownership")
 
@@ -523,8 +530,20 @@ homeownership_all <- homeownership_dis_physical %>%
     homeownership_dis_hearing,
     homeownership_dis_cognitive,
     homeownership_dis_any,
+    homeownership_dis_sensory, 
     by = c("FIPS", "year", "sex", "race", "var_type", "homeownership")
   )
+
+rm(homeownership_dis_independent,
+    homeownership_dis_selfcare,
+    homeownership_dis_vision,
+    homeownership_dis_hearing,
+    homeownership_dis_cognitive,
+    homeownership_dis_any,
+    homeownership_dis_sensory, 
+   homeownership_dis_physical)
+
+save(homeownership_all, file = "interim_data/homeownership_all_dis.RData")
 ```
 
 ```{r hh_homeownership, eval=FALSE}
@@ -541,19 +560,21 @@ hh_age_flag <- disability_data %>%
 disability_data_hh <- disability_data %>%
   filter(PERNUM == 1)
 
-hh_homeownership_dis_physical    <- survey_by_demog(disability_data_hh, "dis_physical", "HHWT", 
+hh_homeownership_dis_physical    <- survey_by_demog(disability_data_hh, "any_dis_physical", "HHWT", 
                                                     other_grouping_vars = "homeownership")
-hh_homeownership_dis_independent <- survey_by_demog(disability_data_hh, "dis_independent", "HHWT",
+hh_homeownership_dis_independent <- survey_by_demog(disability_data_hh, "any_dis_independent", "HHWT",
                                                     other_grouping_vars = "homeownership")
-hh_homeownership_dis_selfcare    <- survey_by_demog(disability_data_hh, "dis_selfcare","HHWT", 
+hh_homeownership_dis_selfcare    <- survey_by_demog(disability_data_hh, "any_dis_selfcare","HHWT", 
                                                     other_grouping_vars = "homeownership")
-hh_homeownership_dis_vision      <- survey_by_demog(disability_data_hh, "dis_vision","HHWT", 
+hh_homeownership_dis_vision      <- survey_by_demog(disability_data_hh, "any_dis_vision","HHWT", 
                                                     other_grouping_vars = "homeownership")
-hh_homeownership_dis_hearing     <- survey_by_demog(disability_data_hh, "dis_hearing", "HHWT", 
+hh_homeownership_dis_hearing     <- survey_by_demog(disability_data_hh, "any_dis_hearing", "HHWT", 
                                                     other_grouping_vars = "homeownership")
-hh_homeownership_dis_cognitive   <- survey_by_demog(disability_data_hh, "dis_cognitive", "HHWT", 
+hh_homeownership_dis_cognitive   <- survey_by_demog(disability_data_hh, "any_dis_cognitive", "HHWT", 
                                                     other_grouping_vars = "homeownership")
-hh_homeownership_dis_any         <- survey_by_demog(disability_data_hh, "dis_any", "HHWT", 
+hh_homeownership_dis_any         <- survey_by_demog(disability_data_hh, "any_dis_any", "HHWT", 
+                                                    other_grouping_vars = "homeownership")
+hh_homeownership_dis_sensory     <- survey_by_demog(disability_data_hh, "any_dis_sensory", "HHWT", 
                                                     other_grouping_vars = "homeownership")
 
 hh_homeownership_all <- hh_homeownership_dis_physical %>%
@@ -563,6 +584,7 @@ hh_homeownership_all <- hh_homeownership_dis_physical %>%
     hh_homeownership_dis_vision,
     hh_homeownership_dis_hearing,
     hh_homeownership_dis_cognitive,
+    hh_homeownership_dis_sensory, 
     hh_homeownership_dis_any,
     by = c("FIPS", "year", "sex", "race", "var_type", "homeownership")
   )
@@ -570,7 +592,7 @@ hh_homeownership_all <- hh_homeownership_dis_physical %>%
 #clean
 rm(hh_homeownership_dis_physical, hh_homeownership_dis_independent, 
    hh_homeownership_dis_selfcare, hh_homeownership_dis_vision, 
-   hh_homeownership_dis_cognitive, hh_homeownership_dis_hearing, hh_homeownership_dis_any)
+   hh_homeownership_dis_cognitive, hh_homeownership_dis_hearing, hh_homeownership_dis_any, hh_homeownership_dis_sensory)
 
 save(hh_homeownership_all, file = "interim_data/hh_homeownership_all_dis.RData")
 ```
@@ -581,19 +603,21 @@ save(hh_homeownership_all, file = "interim_data/hh_homeownership_all_dis.RData")
 disability_data_hh <- disability_data %>%
   filter(PERNUM == 1)
 
-hh_income_dis_physical    <- survey_by_demog(disability_data_hh, "dis_physical", "HHWT", 
+hh_income_dis_physical    <- survey_by_demog(disability_data_hh, "any_dis_physical", "HHWT", 
                                              other_grouping_vars = "income_group")
-hh_income_dis_independent <- survey_by_demog(disability_data_hh, "dis_independent", "HHWT",
+hh_income_dis_independent <- survey_by_demog(disability_data_hh, "any_dis_independent", "HHWT",
                                              other_grouping_vars = "income_group")
-hh_income_dis_selfcare    <- survey_by_demog(disability_data_hh, "dis_selfcare","HHWT", 
+hh_income_dis_selfcare    <- survey_by_demog(disability_data_hh, "any_dis_selfcare","HHWT", 
                                              other_grouping_vars = "income_group")
-hh_income_dis_vision      <- survey_by_demog(disability_data_hh, "dis_vision","HHWT", 
+hh_income_dis_vision      <- survey_by_demog(disability_data_hh, "any_dis_vision","HHWT", 
                                              other_grouping_vars = "income_group")
-hh_income_dis_hearing     <- survey_by_demog(disability_data_hh, "dis_hearing", "HHWT", 
+hh_income_dis_hearing     <- survey_by_demog(disability_data_hh, "any_dis_hearing", "HHWT", 
                                              other_grouping_vars = "income_group")
-hh_income_dis_cognitive   <- survey_by_demog(disability_data_hh, "dis_cognitive", "HHWT", 
+hh_income_dis_cognitive   <- survey_by_demog(disability_data_hh, "any_dis_cognitive", "HHWT", 
                                              other_grouping_vars = "income_group")
-hh_income_dis_any         <- survey_by_demog(disability_data_hh, "dis_any", "HHWT",  
+hh_income_dis_any         <- survey_by_demog(disability_data_hh, "any_dis_any", "HHWT", 
+                                             other_grouping_vars = "income_group")
+hh_income_dis_sensory     <- survey_by_demog(disability_data_hh, "any_dis_sensory", "HHWT", 
                                              other_grouping_vars = "income_group")
 
 hh_income_all <- hh_income_dis_physical %>%
@@ -604,13 +628,12 @@ hh_income_all <- hh_income_dis_physical %>%
     hh_income_dis_hearing,
     hh_income_dis_cognitive,
     hh_income_dis_any,
+    hh_income_dis_sensory, 
     by = c("FIPS", "year", "sex", "race", "var_type", "income_group")
-  ) %>%
+  )
   
 #clean
-rm(hh_income_dis_physical, hh_income_dis_independent, 
-   hh_income_dis_selfcare, hh_income_dis_vision, 
-   hh_income_dis_cognitive, hh_income_dis_hearing, hh_income_dis_any)
+rm(hh_income_dis_any, hh_income_dis_cognitive, hh_income_dis_hearing, ... = hh_income_dis_independent, hh_income_dis_physical, hh_income_dis_selfcare, hh_income_dis_sensory, hh_income_dis_vision)
 
 hh_income_all <- hh_income_all %>%
   mutate(income_group = factor(income_group, levels = c("Under 20k", "20k–49.9k","50k–74.9k", "75k–99.9k", "100k–149.9k", "150k+")))
@@ -635,6 +658,8 @@ age_and_hearing      <- survey_by_demog(disability_data, "dis_hearing", "PERWT",
                                         other_grouping_vars = group_var)
 age_and_cognitive    <- survey_by_demog(disability_data, "dis_cognitive", "PERWT", 
                                         other_grouping_vars = group_var)
+age_and_sensory      <- survey_by_demog(disability_data, "dis_sensory", "PERWT", 
+                                        other_grouping_vars = group_var)
 age_and_any          <- survey_by_demog(disability_data, "dis_any", "PERWT",  
                                         other_grouping_vars = group_var)
 
@@ -646,6 +671,7 @@ age_all <- age_and_hearing %>%
     age_and_any,
     age_and_cognitive,
     age_and_selfcare,
+    age_and_sensory,
     by = c("FIPS", "year", "sex", "race", "var_type", group_var)
   )
 
@@ -653,7 +679,7 @@ age_all <- age_and_hearing %>%
 age_all <- age_all %>%
   mutate(age_group_4 = factor(age_group_4, levels = c("Under 50", "50-64", "65-80", "80 or Older"), ordered = TRUE))
 
-rm(age_and_any, age_and_hearing, age_and_independent, age_and_physical, age_and_selfcare, age_and_vision)
+rm(age_and_any, age_and_hearing, age_and_independent, age_and_physical, age_and_selfcare, age_and_vision, age_and_sensory)
 
 save(age_all, file = "interim_data/age_4_all_dis.RData")
 ```
@@ -677,6 +703,8 @@ age_and_cognitive    <- survey_by_demog(disability_data, "dis_cognitive", "PERWT
                                         other_grouping_vars = group_var)
 age_and_any          <- survey_by_demog(disability_data, "dis_any", "PERWT",
                                         other_grouping_vars = group_var)
+age_and_sensory          <- survey_by_demog(disability_data, "dis_sensory", "PERWT",
+                                        other_grouping_vars = group_var)
 
 age_all_5 <- age_and_hearing %>%
   bind_df(
@@ -686,13 +714,14 @@ age_all_5 <- age_and_hearing %>%
     age_and_cognitive,
     age_and_any,
     age_and_selfcare,
+    age_and_sensory, 
     by = c("FIPS", "year", "sex", "race", "var_type", group_var)
   )
 
 age_all_5 <- age_all_5 %>%
   mutate(age_group_5_yrs = factor(age_group_5_yrs, levels = c("50-54", "55-59","60-64", "65-69", "70-74", "75-79", "80-84", "85-90", "90 plus"), ordered = TRUE))
 
-rm(age_and_any, age_and_hearing, age_and_independent, age_and_physical, age_and_cognitive, age_and_selfcare, age_and_vision)
+rm(age_and_any, age_and_hearing, age_and_independent, age_and_physical, age_and_cognitive, age_and_selfcare, age_and_vision, age_and_sensory)
 
 save(age_all_5, file = "interim_data/age_5_all_dis.RData")
 
@@ -842,7 +871,7 @@ showtext_auto()
 df_all <- individual_dis %>%
   filter(sex == "total", race == "total", var_type %in% c("estimate", "population")) %>%
   select(-FIPS, -sex, -race) %>%
-  pivot_longer(dis_physical:dis_any) %>%
+  pivot_longer(dis_physical:dis_sensory) %>%
   pivot_wider(names_from = var_type, values_from = value)
 
 df_all %<>%
@@ -855,8 +884,24 @@ df_all %<>%
 df_all <- df_all %>%
   left_join(std_age, by = "age_group_4") %>%
   group_by(name, year) %>%
-  summarise(rate = sum(estimate / population * weight)*100) %>%
+  summarise(rate = sum(estimate / population * weight)*100, 
+            total_population = sum(population, na.rm = TRUE), 
+            estimate = sum(estimate, na.rm = TRUE)) %>%
   ungroup()
+
+overall_excel <- df_all %>%
+  filter(year == 2024) %>%
+  rename(Category = name, Percent = rate, Number = estimate) %>%
+  mutate(Category = recode(Category, 
+                                  dis_physical = "Physical",
+                                  dis_sensory = "Sensory",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_cognitive = "Cognitive",
+                                  dis_any = "Any")) %>%
+  select(Category, Percent, Number)
 
 save(df_all, file = "interim_data/age_adjusted_all.RData")
 
@@ -870,6 +915,7 @@ dis_prev_by_type <- df_all %>%
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory",
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
   rename(Percent = rate) %>%
@@ -908,7 +954,7 @@ showtext_auto()
 
 HH_prev <- household_dis %>%
   filter(year == 2024, var_type == "percent") %>%
-  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_cognitive, any_dis_hearing, any_dis_any),
+  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_cognitive, any_dis_hearing, any_dis_any,  any_dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
   select(-race, -sex, -var_type, -FIPS) %>%
@@ -917,9 +963,10 @@ HH_prev <- household_dis %>%
                                   any_dis_selfcare = "Self-Care",
                                   any_dis_vision = "Vision",
                                   any_dis_hearing = "Hearing",
+                                  any_dis_sensory = "Sensory",
                                   any_dis_cognitive = "Cognitive",
                                   any_dis_any = "Any")) %>%
-  select(Disability_Type, Percent)
+  select(Disability_Type, Percent) 
 
 
 save(HH_prev, file= "interim_data/HH_prev.Rdata")
@@ -953,10 +1000,42 @@ showtext_auto()
 colors <- viridis::viridis(2)
 #c("#f60", "#FFCCC2")
 
+sex_excel <- individual_dis %>%
+filter(year ==2024, var_type %in% c("percent", "estimate", "population"), sex != "total", race == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
+               names_to = "Disability_Type", 
+               values_to = "Value") %>%
+  pivot_wider(names_from = var_type, values_from = Value) %>%
+  left_join(std_age, by = "age_group_4") %>%
+  group_by(Disability_Type, sex) %>%
+  summarise(rate = sum(estimate / population * weight)*100, 
+            total_population = sum(population, na.rm = TRUE), 
+            estimate = sum(estimate, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(Category = recode(Disability_Type,
+                                  dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory",
+                                  dis_cognitive = "Cognitive",
+                                  dis_any = "Any"), 
+         sex = recode(sex, female = "Female", male = "Male")) %>%
+  select(sex, Category, everything() , -total_population, -Disability_Type) %>%
+  rename(Sex = sex, Number = estimate, Percent = rate) 
+
+full_sex_excel <- sex_excel %>%
+  pivot_wider(
+    names_from = Sex,
+    values_from = c(Percent, Number),
+    names_glue = "{tolower(Sex)}_{.value}"
+  )
+  
   #clean table- extract relevant columns, values 
 dis_by_sex <- individual_dis %>%
   filter(year ==2024, var_type == "percent", sex != "total", race == "total") %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent")%>%
   select(sex,Disability_Type,Percent) %>%
@@ -966,6 +1045,7 @@ dis_by_sex <- individual_dis %>%
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory",
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
   mutate(sex = recode(sex, 
@@ -973,7 +1053,8 @@ dis_by_sex <- individual_dis %>%
                       female = "Female")) %>% 
  rename(Sex = sex)
 
-  #create chart
+  
+#create chart
 plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +  # fill says split x category by sex
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
@@ -997,6 +1078,43 @@ plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +
 ```{r race_chart}
 load(file = "interim_data/age_adjusted.rData")
 
+
+race_excel <- individual_dis %>%
+filter(year ==2024, var_type %in% c("percent", "estimate", "population"), race != "total", sex == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
+               names_to = "Disability_Type", 
+               values_to = "Value") %>%
+  pivot_wider(names_from = var_type, values_from = Value) %>%
+  left_join(std_age, by = "age_group_4") %>%
+  group_by(Disability_Type, race) %>%
+  summarise(rate = sum(estimate / population * weight)*100, 
+            total_population = sum(population, na.rm = TRUE), 
+            estimate = sum(estimate, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(Category = recode(Disability_Type,
+                                  dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory",
+                                  dis_cognitive = "Cognitive",
+                                  dis_any = "Any"),
+         Race = recode(race, 
+                      black = "Black", 
+                      hispanic = "Hispanic", 
+                      white = "White", 
+                      other = "Not Listed")) %>%
+  select(Race, Category, everything() , -total_population, -Disability_Type, -race) %>%
+  rename(Number = estimate, Percent = rate)
+
+full_race_excel <- race_excel %>%
+  pivot_wider(
+    names_from = Race,
+    values_from = c(Percent, Number),
+    names_glue = "{tolower(Race)}_{.value}"
+  )
+
 showtext_auto()
 colors <- viridis::viridis(4)
   #colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
@@ -1011,6 +1129,7 @@ dis_by_race <- df %>%
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
                                   dis_cognitive = "Cognitive",
+                                  dis_sensory = "Sensory",
                                   dis_any = "Any")) %>%
   select(-name, year)%>%
   mutate(race = recode(race, 
@@ -1053,7 +1172,7 @@ colors <-  viridis::viridis(2)
 #clean it
 dis_by_own <- homeownership_all %>%
   filter(year == 2024, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
   select(homeownership, Disability_Type,Percent) %>%
@@ -1064,6 +1183,7 @@ dis_by_own <- homeownership_all %>%
                              dis_selfcare = "Self-Care",
                              dis_vision = "Vision",
                              dis_hearing = "Hearing",
+                             dis_sensory = "Sensory",
                              dis_cognitive = "Cognitive",
                              dis_any = "Any"),
     Homeownership = if_else(homeownership, "Owns", "Rents")
@@ -1100,20 +1220,21 @@ colors <- viridis::viridis(2)
 
 #clean it
 hh_dis_by_own <- hh_homeownership_all %>%
-  filter(year == 2024, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  filter(year == 2023, var_type == "percent", sex == "total", race == "total", !is.na(homeownership)) %>%
+  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_hearing, any_dis_cognitive, any_dis_any, any_dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
   select(homeownership, Disability_Type,Percent) %>%
   mutate(
     Disability_Type = recode(Disability_Type,
-                             dis_physical = "Physical",
-                             dis_independent = "Ind. Living",
-                             dis_selfcare = "Self-Care",
-                             dis_vision = "Vision",
-                             dis_hearing = "Hearing",
-                             dis_cognitive = "Cognitive",
-                             dis_any = "Any"),
+                             any_dis_physical = "Physical",
+                             any_dis_independent = "Ind. Living",
+                             any_dis_selfcare = "Self-Care",
+                             any_dis_vision = "Vision",
+                             any_dis_hearing = "Hearing",
+                             any_dis_cognitive = "Cognitive",
+                             any_dis_sensory = "Sensory", 
+                             any_dis_any = "Any"),
     Homeownership = if_else(homeownership, "Owns", "Rents")
   ) %>%
   select(-homeownership)
@@ -1148,18 +1269,45 @@ showtext_auto()
 colors <- viridis::viridis(6)
 #colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
 
-#clean it
-dis_by_income <- income_all %>%
-  filter(year == 2024, var_type == "percent", sex == "total", race == "total") %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
-               names_to = "Disability_Type", 
-               values_to = "Percent") %>%
-  select(income_group, Disability_Type,Percent) %>%
-  mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
+income_excel <- income_all %>%
+  filter(year == 2024, var_type %in% c("percent","estimate", "population"), sex == "total", race == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
+               names_to = "Category", 
+               values_to = "Value") %>%
+  pivot_wider(names_from = var_type, values_from = Value) %>%
+  mutate(Category = recode(Category, dis_physical = "Physical",
                                   dis_independent = "Ind. Living",
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
+                                  dis_cognitive = "Cognitive",
+                                  dis_sensory = "Sensory", 
+                                  dis_any = "Any")) %>%
+  rename(Income = income_group, Number = estimate, Percent = percent) %>%
+  select(-FIPS, -race, -sex, -year) %>%
+  arrange(Category, Income)
+
+full_income_excel <- income_excel %>%
+  pivot_wider(
+    names_from = Income,
+    values_from = c(Percent, Number),
+    names_glue = "{tolower(Income)}_{.value}"
+  )
+
+#clean it
+dis_by_income <- income_all %>%
+  filter(year == 2024, var_type == "percent", sex == "total", race == "total") %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
+               names_to = "Disability_Type", 
+               values_to = "Percent") %>%
+  select(income_group, Disability_Type,Percent) %>%
+  mutate(Disability_Type = recode(Disability_Type, 
+                                  dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory", 
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
 rename("Income Group" = income_group)
@@ -1169,7 +1317,7 @@ plot4 <- ggplot(dis_by_income, aes(x = Disability_Type, y = Percent, fill = `Inc
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
     title = "Disabilities Breakdown by Income (2024)",
-    x = NULL, y = "Percent of Population"
+    x = NULL, y = "Percent of Population Per Income Group"
   ) +
   scale_fill_manual(values = colors) +  
  theme_minimal(base_family = "Montserrat", base_size = 22) +
@@ -1192,22 +1340,48 @@ load("interim_data/hh_income_all_dis.RData")
 colors <- viridis::viridis(6)
 #colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
 
+hh_income_excel <- hh_income_all %>%
+  filter(year == 2024, var_type %in% c("percent","estimate"), sex == "total", race == "total") %>%
+  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_hearing, any_dis_cognitive, any_dis_any, any_dis_sensory),
+               names_to = "Category", 
+               values_to = "Value") %>%
+  pivot_wider(names_from = var_type, values_from = Value) %>%
+  mutate(Category = recode(Category, dis_physical = "Physical",
+                                  any_dis_independent = "Ind. Living",
+                                  any_dis_selfcare = "Self-Care",
+                                  any_dis_vision = "Vision",
+                                  any_dis_hearing = "Hearing",
+                                  any_dis_sensory = "Sensory",
+                                  any_dis_cognitive = "Cognitive",
+                                  any_dis_any = "Any")) %>%
+  rename(Income = income_group, Number = estimate, Percent = percent) %>%
+  select(-FIPS, -race, -sex, -year) %>%
+  arrange(Category, Income)
+
+full_hh_income_excel <- hh_income_excel %>%
+  pivot_wider(
+    names_from = Income,
+    values_from = c(Percent, Number),
+    names_glue = "{tolower(Income)}_{.value}"
+  )
+
 #clean it
 hh_dis_by_own <- hh_income_all %>%
   filter(year == 2024, var_type == "percent", sex == "total", race == "total", !is.na(income_group)) %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_hearing, any_dis_cognitive, any_dis_any, any_dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
-  select(income_group, Disability_Type,Percent) %>%
+  select(income_group, Disability_Type, Percent) %>%
   mutate(
     Disability_Type = recode(Disability_Type,
-                             dis_physical = "Physical",
-                             dis_independent = "Ind. Living",
-                             dis_selfcare = "Self-Care",
-                             dis_vision = "Vision",
-                             dis_hearing = "Hearing",
-                             dis_cognitive = "Cognitive",
-                             dis_any = "Any")) %>%
+                             any_dis_physical = "Physical",
+                             any_dis_independent = "Ind. Living",
+                             any_dis_selfcare = "Self-Care",
+                             any_dis_vision = "Vision",
+                             any_dis_hearing = "Hearing",
+                             any_dis_sensory = "Sensory",
+                             any_dis_cognitive = "Cognitive",
+                             any_dis_any = "Any")) %>%
   rename("Income Group" = income_group)
 
 #chart it!
@@ -1240,17 +1414,42 @@ load(file = "interim_data/age_4_all_dis.RData")
 showtext_auto()
 colors <- viridis::viridis(2)
 # colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
-#c("#f60", "#FFCCC2")
+# c("#f60", "#FFCCC2")
+
+age_excel <- age_all %>%
+  filter(year == 2024, sex == "total", race == "total", var_type %in% c("percent", "estimate"), !is.na(age_group_4)) %>%
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
+               names_to = "Category", 
+               values_to = "Value") %>%
+  pivot_wider(names_from = var_type, values_from = Value) %>%
+  mutate(Category = recode(Category, dis_physical = "Physical",
+                                  dis_independent = "Ind. Living",
+                                  dis_selfcare = "Self-Care",
+                                  dis_vision = "Vision",
+                                  dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory",
+                                  dis_cognitive = "Cognitive",
+                                  dis_any = "Any")) %>%
+  rename(Age = age_group_4, Number = estimate, Percent = percent) %>%
+  select(-FIPS, -sex, -race, -year) %>%
+  arrange(Category)
+
+full_age_excel <- age_excel %>%
+  pivot_wider(
+    names_from = Age,
+    values_from = c(Percent, Number),
+    names_glue = "{tolower(Age)}_{.value}"
+  )
 
 # over 65 vs under
 age_new <- age_all %>%
-   filter(year == 2024, sex == "total", race == "total", var_type == "percent",!is.na(age_group_4)) %>%
+   filter(year == 2024, sex == "total", race == "total", var_type == "percent", !is.na(age_group_4)) %>%
   mutate(Age = case_when(
       age_group_4 %in% c("50-64", "Under 50") ~ "Under 65",
       age_group_4 %in% c("80 or Older", "65-80") ~ "Over 65",
       TRUE ~ NA_character_
     )) %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>% 
   mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
@@ -1258,6 +1457,7 @@ age_new <- age_all %>%
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory", 
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
   mutate(Age = factor(Age, levels = c("Under 65", "Over 65"))) %>%
@@ -1267,13 +1467,14 @@ age_new <- age_all %>%
 #clean table
 dis_by_age <- age_all %>%
   filter(year == 2024, sex == "total", race == "total", var_type == "percent",!is.na(age_group_4)) %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>% 
   mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
                                   dis_independent = "Ind. Living",
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
+                                  dis_sensory = "Sensory", 
                                   dis_hearing = "Hearing",
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
@@ -1285,7 +1486,7 @@ plot5 <- ggplot(age_new, aes(x = Disability_Type, y = Percent, fill = Age)) +  #
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
     title = "Disabilities Breakdown by Age (2024)",
-    x = NULL, y = "Percent of Population"
+    x = NULL, y = "Percent of Population Per Age Group"
   ) +
   scale_fill_manual(values = colors) +  
  theme_minimal(base_family = "Montserrat", base_size = 22) +
@@ -1310,7 +1511,7 @@ colors <- viridis::viridis(9)
 #clean table
 dis_by_age <- age_all_5 %>%
   filter(year == 2024, sex == "total", race == "total", var_type == "percent",!is.na(age_group_5_yrs)) %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any),
+  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>% 
   mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
@@ -1318,6 +1519,7 @@ dis_by_age <- age_all_5 %>%
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
+                                  dis_sensory = "Sensory",
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
   select(age_group_5_yrs, Disability_Type, Percent) %>% 
@@ -1409,7 +1611,7 @@ plotmap <- ggplot(dis_map) +
 save(df_all, file = "interim_data/age_adjusted_all.RData")
 
 showtext_auto()
-colors <- viridis::viridis(7)
+colors <- viridis::viridis(8)
 #colorRampPalette(c("#FFCCC2", "#cc3f14"))(6)
 
 
@@ -1422,7 +1624,8 @@ dis_prev_by_type_over_time <- df_all %>%
                                   dis_selfcare = "Self-Care",
                                   dis_vision = "Vision",
                                   dis_hearing = "Hearing",
-                                  dis_cognitive = "Cognitive",
+                                  dis_cognitive = "Cognitive", 
+                                  dis_sensory = "Sensory",
                                   dis_any = "Any")) %>%
   rename(Percent = rate) %>%
   select(-name) %>%
@@ -2055,4 +2258,26 @@ print(plot3)
 
 ggsave("interim_data/plots/hh_diff_ALL.png", plot= plot3)
 
+```
+
+```{r excel}
+df_list <- list(
+  Overall    = overall_excel,
+  Sex        = sex_excel,
+  Race       = race_excel,
+  Age        = age_excel,
+  Income     = income_excel,
+  HH_Income  = hh_income_excel
+)
+
+new_dfs <- list(
+  Overall = overall_excel, 
+  Sex = full_sex_excel, 
+  Race = full_race_excel, 
+  Age = full_age_excel, 
+  Income = full_income_excel, 
+  HH_Income = full_hh_income_excel
+)
+
+write.xlsx(df_list, file = "data/accessibility_data.xlsx", overwrite = TRUE)
 ```
