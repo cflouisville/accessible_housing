@@ -1340,6 +1340,65 @@ plot5yr <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age))
   print(plot5yr)
 ```
 
+### Map
+
+```{r}
+
+dis_vars <- build_census_var_df("acs5", "B18105")
+
+dis_vars %<>% filter(year == 2024)
+
+dis_df <- get_census(dis_vars, "tract")
+
+dis_df %<>%
+  mutate(
+    dis_phys = case_when(
+      str_detect(label, "With an ambulatory difficulty") ~ T,
+      str_detect(label, "No ambulatory difficulty") ~ F,
+      T ~ NA))
+
+dis_df2 <- dis_df %>%
+  process_census(cat_var = "dis_phys", output_name = "ambulatory_dis")
+
+process_map(dis_df2, ambulatory_dis, return_name = "dis_phys", maps = "nh") %>% list2env(.GlobalEnv)
+
+dis_phys_nh %<>%
+  filter(sex == "total", var_type == "percent")
+
+dis_map <- left_join(glptools::map_nh, dis_phys_nh, by = "neighborhood")
+
+dis_map %<>%
+  select(neighborhood, ambulatory_dis)
+
+
+```
+
+```{r dis_map_plot}
+plotmap <- ggplot(dis_map) +
+  geom_sf(aes(fill = ambulatory_dis), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(
+    name = "Physical\nDisability Rate (%)",
+    option = "viridis",
+    limits = c(0, 16),
+    breaks = c(0, 4, 8, 12, 16),
+    labels = c("0%", "4%", "8%", "12%", "16%")
+  ) +
+  labs(
+    title = "Physical disability by Neighborhood",
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 22, face = "bold", family = "Montserrat"),
+    legend.position = "right",
+    legend.text = element_text(hjust = 1, family = "Montserrat"),
+    legend.title = element_text(family = "Montserrat")
+  )
+
+  ggsave("interim_data/plots/plotmap.png", plot= plotmap)
+  print(plotmap)
+```
+
+
 ## Trends Over Time (2008-2024)
 
 *Note missing data for the year 2020*
