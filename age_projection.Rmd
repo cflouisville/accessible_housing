@@ -194,6 +194,8 @@ proj_80_plus %<>%
 
 ```{r}
 
+load(file = "interim_data/age_adjusted_all.RData")
+
 
 # Create a data frame of population projections 
 pop_projections <- lou3 %>%
@@ -232,19 +234,29 @@ dis_projections %<>%
     population = sum(population))
 
 # Add in data for 2008-2024
+actual_data_2 <-individual_dis_age_4 %>%
+  filter(sex == "total", race == "total") %>%
+  select(-FIPS, -sex, -race) %>%
+  pivot_wider(names_from = "var_type", values_from = "dis_physical") %>%
+  select(-MOE, -CI) %>%
+  group_by(year) %>%
+  summarise(
+    population = sum(population, na.rm = TRUE),
+    estimate   = sum(estimate, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 actual_data <- individual_dis %>%
   filter(sex == "total", race == "total", var_type %in% c("estimate", "population")) %>%
-  select(year, var_type, dis_physical) %>%
-  pivot_wider(names_from = var_type, 
-              values_from = dis_physical) 
+  pivot_vartype_wider(dis_physical) %>%
+  select(year, estimate, population)
 
-disability_projections <- bind_rows(actual_data, dis_projections)
+disability_projections <- bind_rows(actual_data_2, dis_projections)
 
 disability_projections %<>%
-  mutate(percent = estimate / population * 100)
+  mutate(percent = estimate / population * 100) 
 
-
+write.xlsx(actual_data_2, file = "data/pop_over_65_80.xlsx", overwrite = TRUE)
 ```
 
 <!-- 2019: 
@@ -313,3 +325,151 @@ HMSKLVR: Presence and use of sink handles or levers
 HMSWITCH: Presence and use of wheelchair accessible electrical switches
 HMWHEELN: Number of wheelchair accessible features in the home
 HMXWDR: Presence and use of extra-wide doors or hallways -->
+
+```{r}
+# df with total population, population over age 65, and number over 65 with amb disability from 2008-2024 (ACS)
+population_and_estimate_65 <- individual_dis_age_4 %>%
+  filter(sex=="total", race=="total", var_type %not_in% c("MOE", "CI"), age_group_4 %in% c("65-80", "80 or Older")) %>%
+  select(-sex, -race, -FIPS) %>%
+  pivot_wider(names_from = "var_type", values_from = "dis_physical") %>%
+  group_by(year) %>%
+  summarise(
+    population_65_plus = sum(population, na.rm = TRUE),
+    estimate_65_plus_with_dis   = sum(estimate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+data_65 <- bind_cols(population_and_estimate_65, actual_data_2)
+write.xlsx(data_65, file = "data/pop_over_65.xlsx", overwrite = TRUE)
+
+  
+# df with total population, population over age 80, and number over 80 with amb disability from 2008-2024 (ACS)
+population_and_estimate_80 <- individual_dis_age_4 %>%
+  filter(sex=="total", race=="total", var_type %not_in% c("MOE", "CI"), age_group_4 =="80 or Older") %>%
+  select(-sex, -race, -FIPS) %>%
+  pivot_wider(names_from = "var_type", values_from = "dis_physical") %>%
+  group_by(year) %>%
+  summarise(
+    population_80_plus = sum(population, na.rm = TRUE),
+    estimate_80_plus_with_dis   = sum(estimate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+data_80 <- bind_cols(population_and_estimate_80, actual_data_2)
+write.xlsx(data_80, file = "data/pop_over_80.xlsx", overwrite = TRUE)
+
+# df with total population, population over age 80, and number over 80 with amb disability from 2008-2024 (ACS)
+population_and_estimate_50_64 <- individual_dis_age_4 %>%
+  filter(sex=="total", race=="total", var_type %not_in% c("MOE", "CI"), age_group_4 =="50-64") %>%
+  select(-sex, -race, -FIPS) %>%
+  pivot_wider(names_from = "var_type", values_from = "dis_physical") %>%
+  group_by(year) %>%
+  summarise(
+    population_50_64 = sum(population, na.rm = TRUE),
+    estimate_50_64_with_dis   = sum(estimate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+data_50_64 <- bind_cols(population_and_estimate_50_64, actual_data_2)
+write.xlsx(data_50_64, file = "data/pop_50_64.xlsx", overwrite = TRUE)
+
+# df with total population, population over age 80, and number over 80 with amb disability from 2008-2024 (ACS)
+population_and_estimate_50_under <- individual_dis_age_4 %>%
+  filter(sex=="total", race=="total", var_type %not_in% c("MOE", "CI"), age_group_4 =="Under 50") %>%
+  select(-sex, -race, -FIPS) %>%
+  pivot_wider(names_from = "var_type", values_from = "dis_physical") %>%
+  group_by(year) %>%
+  summarise(
+    population_50_under = sum(population, na.rm = TRUE),
+    estimate_50_under_dis   = sum(estimate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+data_50_under <- bind_cols(population_and_estimate_50_under, actual_data_2)
+write.xlsx(data_50_under, file = "data/pop_50_under.xlsx", overwrite = TRUE)
+```
+
+```{r ambulatory_dis_projection}
+df <- read.xlsx("data/amb_past_excel.xlsx")
+  
+# Create a data frame of population projections (2022-2050)
+pop_projections <- lou3 %>%
+  mutate(
+    AGEGRP = case_when(
+      AGEGRP %in% 1:10 ~ "Under 50",
+      AGEGRP %in% 11:13 ~ "50-64",
+      AGEGRP %in% 14:16 ~ "65-80",
+      AGEGRP %in% 17:18 ~ "80 or Older")) %>%
+  select(AGEGRP:N2050) %>%
+  pivot_longer(N2025:N2050) %>%
+  transmute(
+    age_group = AGEGRP,
+    year = as.numeric(str_sub(name, 2, 5)),
+    value = value) %>%
+  group_by(age_group, year) %>%
+  reframe(
+    population = sum(value))
+
+# Get rates of disability by age group (average of first 6 years and most recent 6 years)
+dis_estimates <- individual_dis_age_4 %>%
+  filter(sex == "total", race == "total", var_type == "percent") %>%
+  select(year, age_group_4, dis_physical) %>%
+  group_by(age_group_4) %>%
+  summarise(
+    rate_past   = mean(ifelse(year %in% 2008:2015, dis_physical, NA), na.rm = TRUE),
+    rate_future = mean(ifelse(year %in% 2016:2024, dis_physical, NA), na.rm = TRUE)
+  )
+
+# Join the estimates, calculate counts of disability going forward
+dis_projections <- pop_projections %<>%
+  left_join(dis_estimates, by = c("age_group" = "age_group_4")) %>%
+  select(year, age_group, population, rate_future)
+
+dis_projections %<>%
+  mutate(estimate = population * rate_future / 100)
+
+dis_projections %<>%
+  group_by(year) %>%
+  reframe(
+    estimate = sum(estimate),
+    population = sum(population))
+
+# population by age group from 1960-2020
+amb_past <- df %>%
+  mutate(
+    AGEGRP = case_when(
+      AGEGRP %in% c("00-04","05-09","10-14","15-19","20-24","25-29","30-34","35-39", "40-44","45-49") ~ "Under 50",
+      AGEGRP %in% c("50-54", "55-59", "60-64") ~ "50-64",
+      AGEGRP %in% c("65-69", "70-74", "75-79") ~ "65-80",
+      AGEGRP %in% c("80-84","85+") ~ "80 or Older")) %>%
+  pivot_longer(y1960:y2020) %>%
+  transmute(
+    age_group = AGEGRP,
+    year = as.numeric(str_sub(name, 2, 5)),
+    value = value) %>%
+  group_by(age_group, year) %>%
+  reframe(
+    population = sum(value))
+
+# Join the estimates, calculate counts of disability going forward
+dis_past <- amb_past %<>%
+  left_join(dis_estimates, by = c("age_group" = "age_group_4")) %>%
+  select(year, age_group, population, rate_past)
+
+dis_past %<>%
+  mutate(estimate = population * rate_past / 100)
+
+dis_past %<>%
+  group_by(year) %>%
+  reframe(
+    estimate = sum(estimate),
+    population = sum(population))
+
+disability_projections <- bind_rows(dis_past, dis_projections)
+
+disability_projections %<>%
+  mutate(percent = estimate / population * 100)
+
+write.xlsx(disability_projections, file = "data/amb_projection.xlsx")
+```
+
