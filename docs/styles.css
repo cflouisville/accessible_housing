@@ -48,3 +48,20 @@ a:hover {
   background-position: center;
 }
 
+.plot-map {
+  width: 700px;       
+  height: 500px;      
+  background-image: url("plotmap.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.amb-projections {
+  width: 700px;       
+  height: 500px;      
+  background-image: url("amb_projection.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
