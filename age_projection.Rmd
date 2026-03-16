@@ -17,23 +17,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FA
 
 ```
 
-```{r clean_data}
-library(writexl)
-lou_projections <- read_excel("data/Population-Projections-by-Sex-and-Five-Year-Age-Group.xlsx")
-
-#percent population over 65, estimate number of poeple over 65
-# proj_65_plus <- lou_projections %>% 
-#   filter(FIPS == '21111') %>%
-#   select(AGEGRP, MALE, N2025, N2030, N2035, N2040, N2045, N2050) %>%
-#   #sum male/female for age group totals
-#   group_by(AGEGRP) %>%
-#   summarise(across(c(N2025, N2030, N2035, N2040, N2045, N2050), ~ sum(.x, na.rm = TRUE))) %>%
-#   ungroup() 
-#   # write_xlsx("interim_data/proj_65_plus.xlsx")
-
-```
-
-```{r}
+```{r age_projections}
 
 lou3 <- read_excel("interim_data/lou_projections.xlsx")
 
@@ -95,6 +79,7 @@ proj_80_plus <- proj_80_plus %>%
 ```
 
 ```{r append_ACS_projections}
+
 # proj_80_plus %<>%
 #   select(year, percent) %<>%
 #   rename(Year = year, Percent = percent)
@@ -105,8 +90,8 @@ combined_60_census <- bind_rows(census_over_65, proj_65_plus)%>%
 combined_80_census <- bind_rows(census_over_80, proj_80_plus)
 
 plot_65_over_proj <- ggplot(combined_60_census, aes(x = Year, y = Percent)) +
-  geom_line(size = 1.2, color = "#FFCCC2") +                      
-  geom_point(size = 2, color = "#f60") + #points on the year (optional)                      
+  geom_line(size = 1.2, color = "#8B0154") +                      
+  geom_point(size = 2, color = "#440154") + #points on the year                     
   labs(
     title = "Percent of Population Aged 65 or Older",
     x = NULL,
@@ -124,8 +109,8 @@ plot_65_over_proj <- ggplot(combined_60_census, aes(x = Year, y = Percent)) +
 print(plot_65_over_proj)
 
 plot_80_over_proj <- ggplot(combined_80_census, aes(x = Year, y = Percent)) +
-  geom_line(size = 1.2, color = "#FFCCC2") +                      
-  geom_point(size = 2, color = "#f60") + #points on the year (optional)                      
+  geom_line(size = 1.2, color = "#8B0154") +                      
+  geom_point(size = 2, color = "#440154") + #points on the year                        
   labs(
     title = "Percent of Population Aged 80 or Older",
     x = NULL,
