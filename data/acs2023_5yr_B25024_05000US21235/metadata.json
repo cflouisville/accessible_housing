@@ -1,0 +1,60 @@
+{
+    "release": {
+        "id": "acs2023_5yr",
+        "name": "ACS 2023 5-year",
+        "years": "2019-2023"
+    },
+    "tables": {
+        "B25024": {
+            "columns": {
+                "B25024001": {
+                    "indent": 0,
+                    "name": "Total:"
+                },
+                "B25024002": {
+                    "indent": 1,
+                    "name": "1, detached"
+                },
+                "B25024003": {
+                    "indent": 1,
+                    "name": "1, attached"
+                },
+                "B25024004": {
+                    "indent": 1,
+                    "name": "2"
+                },
+                "B25024005": {
+                    "indent": 1,
+                    "name": "3 or 4"
+                },
+                "B25024006": {
+                    "indent": 1,
+                    "name": "5 to 9"
+                },
+                "B25024007": {
+                    "indent": 1,
+                    "name": "10 to 19"
+                },
+                "B25024008": {
+                    "indent": 1,
+                    "name": "20 to 49"
+                },
+                "B25024009": {
+                    "indent": 1,
+                    "name": "50 or more"
+                },
+                "B25024010": {
+                    "indent": 1,
+                    "name": "Mobile home"
+                },
+                "B25024011": {
+                    "indent": 1,
+                    "name": "Boat, RV, van, etc."
+                }
+            },
+            "denominator_column_id": "B25024001",
+            "title": "Units in Structure",
+            "universe": "Housing units"
+        }
+    }
+}
