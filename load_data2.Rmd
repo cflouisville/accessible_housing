@@ -206,7 +206,6 @@ disability_data %<>%
       !homeownership & !cost_burden ~ "noncb_renter",
       !homeownership & cost_burden  ~ "cb_renter",
       TRUE ~ NA_character_)
-    
     )
 
 # MB Checking the disability variable recode. The colon selects several columns. Nifty!
@@ -262,6 +261,8 @@ std_age %<>%
   mutate(weight = population / sum(population)) %>%
   select(-population)
 
+save(std_age, file = "data/std_age.RData")
+
 ```
 
 ```{r initial_calcs_age_adjusted, eval = FALSE}
@@ -294,6 +295,7 @@ individual_dis_sensory   <- survey_by_demog(disability_data, "dis_sensory",   "P
                                               other_grouping_vars = "age_group_4")
 individual_dis_any         <- survey_by_demog(disability_data, "dis_any",         "PERWT", 
                                               other_grouping_vars = "age_group_4")
+
 
 # Combine data frames
 # @MB: the functions for you to know are left_join and full_join, etc.
@@ -362,12 +364,12 @@ individual_dis_age_9     <- survey_by_demog(disability_data,
                                         "PERWT", 
                                         other_grouping_vars = "age_group_9")
 
-individual_dis_any_age_4       <- survey_by_demog(disability_data, 
+individual_dis_any_age_4  <- survey_by_demog(disability_data, 
                                             "dis_any_4", 
                                             "PERWT", 
                                             other_grouping_vars = "age_group_4") 
 
-individual_dis_income    <- survey_by_demog(disability_data, 
+individual_dis_income     <- survey_by_demog(disability_data, 
                                          "dis_physical", 
                                          "PERWT", 
                                          other_grouping_vars = "income_group")
@@ -2091,7 +2093,9 @@ plot_summary <- ggplot(summary_KHC_df, aes(x = Category, y = Units)) +
 print(plot_summary)
 ```
 
-# Age Projections: Jefferson County
+# Projections: Jefferson County
+
+## Age
 
 ::: age-projections-graph-65
 :::
@@ -2099,6 +2103,10 @@ print(plot_summary)
 ::: age-projections-graph-80
 :::
 
+## Ambulatory Difficulty
+
+::: amb-projections
+:::
 
 # American Housing Survey (AHS)
 ## Household Level Accessibility Estimates
