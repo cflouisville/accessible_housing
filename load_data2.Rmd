@@ -959,7 +959,6 @@ HH_prev <- household_dis %>%
   pivot_longer(cols = c(any_dis_physical, any_dis_independent, any_dis_selfcare, any_dis_vision, any_dis_cognitive, any_dis_hearing, any_dis_any,  any_dis_sensory),
                names_to = "Disability_Type", 
                values_to = "Percent") %>%
-  select(-race, -sex, -var_type, -FIPS) %>%
   mutate(Disability_Type = recode(Disability_Type, any_dis_physical = "Physical",
                                   any_dis_independent = "Ind. Living",
                                   any_dis_selfcare = "Self-Care",
@@ -1034,30 +1033,8 @@ full_sex_excel <- sex_excel %>%
     names_glue = "{tolower(Sex)}_{.value}"
   )
   
-  #clean table- extract relevant columns, values 
-dis_by_sex <- individual_dis %>%
-  filter(year ==2024, var_type == "percent", sex != "total", race == "total") %>%
-  pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
-               names_to = "Disability_Type", 
-               values_to = "Percent")%>%
-  select(sex,Disability_Type,Percent) %>%
-  mutate(Disability_Type = recode(Disability_Type,
-                                  dis_physical = "Physical",
-                                  dis_independent = "Ind. Living",
-                                  dis_selfcare = "Self-Care",
-                                  dis_vision = "Vision",
-                                  dis_hearing = "Hearing",
-                                  dis_sensory = "Sensory",
-                                  dis_cognitive = "Cognitive",
-                                  dis_any = "Any")) %>%
-  mutate(sex = recode(sex, 
-                      male = "Male", 
-                      female = "Female")) %>% 
- rename(Sex = sex)
-
-  
 #create chart
-plot2 <- ggplot(dis_by_sex, aes(x = Disability_Type, y = Percent, fill = Sex)) +  # fill says split x category by sex
+plot2 <- ggplot(sex_excel, aes(x = Category, y = Percent, fill = Sex)) +  # fill says split x category by sex
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
     title = "Disabilities Breakdown by Sex (2024)",
@@ -1093,6 +1070,7 @@ filter(year ==2024, var_type %in% c("percent", "estimate", "population"), race !
             total_population = sum(population, na.rm = TRUE), 
             estimate = sum(estimate, na.rm = TRUE)) %>%
   ungroup() %>%
+  filter(race != "other") %>%
   mutate(Category = recode(Disability_Type,
                                   dis_physical = "Physical",
                                   dis_independent = "Ind. Living",
@@ -1105,8 +1083,7 @@ filter(year ==2024, var_type %in% c("percent", "estimate", "population"), race !
          Race = recode(race, 
                       black = "Black", 
                       hispanic = "Hispanic", 
-                      white = "White", 
-                      other = "Not Listed")) %>%
+                      white = "White")) %>%
   select(Race, Category, everything() , -total_population, -Disability_Type, -race) %>%
   rename(Number = estimate, Percent = rate)
 
@@ -1123,7 +1100,7 @@ colors <- viridis::viridis(4)
 
   #clean table
 dis_by_race <- df %>%
-  filter(year == 2024, race != "total") %>%
+  filter(year == 2024, race != "total", race != "other") %>%
   mutate(Disability_Type = recode(name,
                                   dis_physical = "Physical",
                                   dis_independent = "Ind. Living",
@@ -1139,7 +1116,7 @@ dis_by_race <- df %>%
                       hispanic = "Hispanic", 
                       white = "White", 
                       other = "Not Listed"), 
-         race = factor(race, levels = c("Black", "White", "Hispanic", "Not Listed"))) %>% 
+         race = factor(race, levels = c("Black", "White", "Hispanic"))) %>% 
   rename(Race = race, Percent = rate)
   
   #make chart
@@ -1445,7 +1422,8 @@ full_age_excel <- age_excel %>%
 
 # over 65 vs under
 age_new <- age_all %>%
-   filter(year == 2024, sex == "total", race == "total", var_type == "percent", !is.na(age_group_4)) %>%
+   filter(year == 2024, sex == "total", race == "total", var_type %in% c("percent", "estimate", "population"), !is.na(age_group_4)) %>%
+  
   mutate(Age = case_when(
       age_group_4 %in% c("50-64", "Under 50") ~ "Under 65",
       age_group_4 %in% c("80 or Older", "65-80") ~ "Over 65",
@@ -1453,7 +1431,15 @@ age_new <- age_all %>%
     )) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
-               values_to = "Percent") %>% 
+               values_to = "Value")%>%
+  pivot_wider(names_from = var_type, values_from = Value) %>%
+  group_by(Age, Disability_Type) %>%
+  summarise(
+    estimate = sum(estimate, na.rm = TRUE),
+    population = sum(population, na.rm = TRUE),
+    Percent = (estimate / population) * 100,
+    .groups = "drop"
+  ) %>%
   mutate(Disability_Type = recode(Disability_Type, dis_physical = "Physical",
                                   dis_independent = "Ind. Living",
                                   dis_selfcare = "Self-Care",
@@ -1480,7 +1466,7 @@ dis_by_age <- age_all %>%
                                   dis_hearing = "Hearing",
                                   dis_cognitive = "Cognitive",
                                   dis_any = "Any")) %>%
-  select(age_group_4, Disability_Type, Percent) %>% 
+  #select(age_group_4, Disability_Type, Percent) %>% 
   rename(Age = age_group_4)
 
 #chart it!
@@ -1511,7 +1497,7 @@ colors <- viridis::viridis(9)
   #colorRampPalette(c("#FFCCC2", "#cc3f14"))(9)
 
 #clean table
-dis_by_age <- age_all_5 %>%
+dis_by_age_2 <- age_all_5 %>%
   filter(year == 2024, sex == "total", race == "total", var_type == "percent",!is.na(age_group_5_yrs)) %>%
   pivot_longer(cols = c(dis_physical, dis_independent, dis_selfcare, dis_vision, dis_hearing, dis_cognitive, dis_any, dis_sensory),
                names_to = "Disability_Type", 
@@ -1548,6 +1534,8 @@ plot5yr <- ggplot(dis_by_age, aes(x = Disability_Type, y = Percent, fill = Age))
 
 ```{r}
 
+library(sf)
+
 dis_vars <- build_census_var_df("acs5", "B18105")
 
 dis_vars %<>% filter(year == 2024)
@@ -1569,7 +1557,9 @@ process_map(dis_df2, ambulatory_dis, return_name = "dis_phys", maps = "nh") %>% 
 dis_phys_nh %<>%
   filter(sex == "total", var_type == "percent")
 
-dis_map <- left_join(glptools::map_nh, dis_phys_nh, by = "neighborhood")
+map_nh <- st_as_sf(glptools::map_nh)
+
+dis_map <- left_join(map_nh, dis_phys_nh, by = "neighborhood")
 
 dis_map %<>%
   select(neighborhood, ambulatory_dis)
@@ -1793,14 +1783,13 @@ colors <- viridis::viridis(4)
 
 # TODO - remove not listed from graph
 race_over_time <- df %>%
-  filter(race != "total", name == "dis_physical") %>%
+  filter(race != "total", name == "dis_physical", race != "other") %>%
   select(-name, year)%>%
   mutate(race = recode(race, 
                       black = "Black", 
                       hispanic = "Hispanic", 
-                      white = "White", 
-                      other = "Not Listed"), 
-         race = factor(race, levels = c("Black", "White", "Hispanic", "Not Listed"))) %>% 
+                      white = "White"), 
+         race = factor(race, levels = c("Black", "White", "Hispanic"))) %>% 
   rename(Race = race, dis_physical = rate)
   
 plot_race_time <- ggplot(race_over_time, aes(x = year, y = dis_physical, color = Race, group = Race)) +
@@ -2124,12 +2113,14 @@ load(file = "interim_data/accessible_features_hh.RData")
 hh_devices <- accessible_features %>%
   summarise(Any = weighted.mean(any_mob_dev, WEIGHT, na.rm = TRUE) *100, 
             Cane = weighted.mean(CANE, WEIGHT, na.rm = TRUE)*100, 
-            `Powered Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
+            `Power Wheelchair` = weighted.mean(ECHAIR, WEIGHT, na.rm = TRUE)*100, 
             `Manual Wheelchair` = weighted.mean(WCHAIR, WEIGHT, na.rm = TRUE)*100,
-            `Other Mobility Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
+            `Other Device` = weighted.mean(MOBOTHER, WEIGHT, na.rm = TRUE)*100, 
             Crutches = weighted.mean(CRUTCH, WEIGHT, na.rm = TRUE)*100
             ) %>%
-  pivot_longer(cols = Any:Crutches, names_to = "Device Type", values_to = "Percent")
+  pivot_longer(cols = Any:Crutches, names_to = "Device Type", values_to = "Percent") %>%
+  mutate(`Device Type` = factor(`Device Type`,
+    levels = c("Any", "Cane", "Power Wheelchair", "Manual Wheelchair", "Crutches", "Other Device")))
 
 plot1 <- ggplot(hh_devices, aes(x = `Device Type`, y = Percent)) +
   geom_col(fill = "#440154", width = .5) +
