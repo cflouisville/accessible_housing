@@ -977,7 +977,7 @@ dis_prev_by_type$Percent <- round(dis_prev_by_type$Percent, 2)
 
 plot1 <- ggplot(dis_prev_by_type, aes(x = Disability_Type, y = Percent)) +
   geom_col(fill = "#440154", width = .5) +
-  geom_text(aes(label = paste0(Percent, "%")), 
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), 
             vjust = -0.5, size = 6) +
   labs(
     title = "Prevalence of Disabilities by Type (2024)",
@@ -1409,10 +1409,10 @@ hh_dis_by_own <- hh_income_all %>%
                              any_dis_sensory = "Sensory",
                              any_dis_cognitive = "Cognitive",
                              any_dis_any = "Any")) %>%
-  rename("Income Group" = income_group)
+  rename("Household income" = income_group)
 
 #chart it!
-hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = `Income Group`)) +  # fill says split x category by this category
+hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = `Household income`)) +  # fill says split x category by this category
   geom_col(position = position_dodge(width = 0.5), width = 0.5) + #dodge = side by side not stacked 
   labs(
     title = "Disabilities Breakdown by Income (2024)",
@@ -1437,11 +1437,13 @@ hh_income <- ggplot(hh_dis_by_own, aes(x = Disability_Type, y = Percent, fill = 
 
 ```{r age_chart}
 load(file = "interim_data/age_2_all_dis.RData")
+load(file = "interim_data/age_4_all_dis.RData")
 
 showtext_auto()
 colors <- viridis::viridis(2)
 # colorRampPalette(c("#FFCCC2", "#cc3f14"))(4)
 # c("#f60", "#FFCCC2")
+
 
 age_excel <- age_all_2 %>%
   filter(year == 2024, sex == "total", race == "total", var_type %in% c("percent", "estimate"), !is.na(age_group_2)) %>%
@@ -1459,14 +1461,16 @@ age_excel <- age_all_2 %>%
                                   dis_any = "Any")) %>%
   rename(Age = age_group_2, Number = estimate, Percent = percent) %>%
   select(-FIPS, -sex, -race, -year) %>%
-  arrange(Category)
+  arrange(Category) %>%
+  pivot_wider(names_from = Age, values_from = c("Number", "Percent"))
 
-full_age_excel <- age_excel %>%
-  pivot_wider(
-    names_from = Age,
-    values_from = c(Percent, Number),
-    names_glue = "{tolower(Age)}_{.value}"
-  )
+
+# full_age_excel <- age_excel %>%
+#   pivot_wider(
+#     names_from = Age,
+#     values_from = c(Percent, Number),
+#     names_glue = "{tolower(Age)}_{.value}"
+#   )
 
 # over 65 vs under
 age_new <- age_all_2 %>%
@@ -1586,7 +1590,7 @@ dis_map %<>%
 
 ```{r dis_map_plot}
 plotmap <- ggplot(dis_map) +
-  geom_sf(aes(fill = ambulatory_dis), color = "white", linewidth = 0.3) +
+  geom_sf(aes(fill = ambulatory_dis), color = "white", linewidth = 0.5) +
   scale_fill_viridis_c(
     name = "Physical\nDisability Rate (%)",
     option = "viridis",
@@ -1599,10 +1603,10 @@ plotmap <- ggplot(dis_map) +
   ) +
   theme_void() +
   theme(
-    plot.title = element_text(hjust = 0.5, size = 22, face = "bold", family = "Montserrat"),
+    plot.title = element_text(hjust = 0.5, size = 30, face = "bold", family = "Montserrat"),
     legend.position = "right",
-    legend.text = element_text(hjust = 1, family = "Montserrat"),
-    legend.title = element_text(family = "Montserrat")
+    legend.text = element_text(hjust = 1, size = 16, family = "Montserrat"),
+    legend.title = element_text(size = 20, family = "Montserrat")
   )
 
   ggsave("interim_data/plots/plotmap.png", plot= plotmap)
@@ -2141,7 +2145,7 @@ hh_devices <- accessible_features %>%
 
 plot1 <- ggplot(hh_devices, aes(x = `Device Type`, y = Percent)) +
   geom_col(fill = "#440154", width = .5) +
-  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), 
             vjust = -0.5, size = 6) +
   labs(
     title = "Percent of Households in Which Someone Uses a Mobility Assistive Device",
@@ -2183,7 +2187,7 @@ hh_room_difficulty <- accessible_features %>%
 
 plot2 <- ggplot(hh_room_difficulty, aes(x = `Area of House`, y = Percent)) +
   geom_col(fill = "#440154", width = .5) +
-  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), 
             vjust = -0.5, size = 6) +
   labs(
     title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
@@ -2220,7 +2224,7 @@ hh_room_difficulty_wheelchair <- accessible_features %>%
 
 plot4 <- ggplot(hh_room_difficulty_wheelchair, aes(x = `Area of House`, y = Percent)) +
   geom_col(fill = "#440154", width = .5) +
-  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), 
             vjust = -0.5, size = 6) +
   labs(
     title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
@@ -2257,7 +2261,7 @@ hh_room_difficulty_ALL <- accessible_features %>%
 
 plot3 <- ggplot(hh_room_difficulty_ALL, aes(x = `Area of House`, y = Percent)) +
   geom_col(fill = "#440154", width = .5) +
-  geom_text(aes(label = paste0(round(Percent, 2), "%")), 
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), 
             vjust = -0.5, size = 6) +
   labs(
     title = "Percent of Households Which Report Difficulty Accessing Parts of Their Home",
@@ -2276,7 +2280,7 @@ ggsave("interim_data/plots/hh_diff_ALL.png", plot= plot3)
 
 ```
 
-```{r excel}
+```{r excel, eval=FALSE}
 df_list <- list(
   Overall    = overall_excel,
   Sex        = sex_excel,
